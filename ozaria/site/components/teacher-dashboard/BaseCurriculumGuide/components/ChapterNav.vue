@@ -1,65 +1,103 @@
 <script>
-  import { mapGetters, mapActions } from 'vuex'
-  export default {
-    computed: {
-      ...mapGetters({
-        chapterNavBar: 'baseCurriculumGuide/chapterNavBar',
-        selectedChapterId: 'baseCurriculumGuide/selectedChapterId',
-        getCurrentCourse: 'baseCurriculumGuide/getCurrentCourse',
-        getTrackCategory: 'teacherDashboard/getTrackCategory'
-      }),
+import { mapGetters, mapActions } from 'vuex'
+import utils from 'core/utils'
+import IconNew from 'app/core/components/IconNew'
+import IconBeta from 'app/core/components/IconBeta'
 
-      chapterNav () {
-        // This ensures released chapters are correctly placed, with internal chapters added after.
-        return (this.chapterNavBar || [])
-          .filter(({ releasePhase }) => releasePhase !== 'internalRelease')
-          .concat(
-            (this.chapterNavBar || [])
-              .filter(({ releasePhase }) => releasePhase === 'internalRelease')
-          ).map(({ campaignID, free }, idx) => {
-            return ({
-              campaignID,
-              heading: this.$t('teacher_dashboard.chapter_num', { num: idx + 1 })
-            })
-          })
+export default {
+  components: {
+    IconNew,
+    IconBeta,
+  },
+  props: {
+    chapters: {
+      type: Array,
+      required: true,
+    },
+  },
+  computed: {
+    ...mapGetters({
+      chapterNavBar: 'baseCurriculumGuide/chapterNavBar',
+      selectedChapterId: 'baseCurriculumGuide/selectedChapterId',
+      getCurrentCourse: 'baseCurriculumGuide/getCurrentCourse',
+      getTrackCategory: 'teacherDashboard/getTrackCategory',
+      classroomCourseId: 'teacherDashboard/getSelectedCourseIdCurrentClassroom',
+      courses: 'courses/sorted'
+    }),
+
+    courseName () {
+      return this.getCurrentCourse?.name || ''
+    }
+  },
+
+  watch: {
+    chapters: {
+      immediate: true,
+      handler (newChapters) {
+        if (newChapters?.length > 0) {
+          const course = this.$route.params.course
+          let campaign
+          if (course) {
+            campaign = newChapters.find(c => c.heading?.toLowerCase() === course.toLowerCase())?.campaignID
+          }
+          if (!campaign) {
+            campaign = newChapters[0].campaignID
+          }
+          this.setSelectedCampaign(campaign)
+        }
       },
+    },
+  },
 
-      courseName () {
-        return this.getCurrentCourse?.name || ''
+  methods: {
+    ...mapActions({
+      setSelectedCampaign: 'baseCurriculumGuide/setSelectedCampaign',
+    }),
+
+    classForButton (campaignID) {
+      return {
+        selected: this.selectedChapterId === campaignID,
+        'chapter-btn': true
       }
     },
 
-    methods: {
-      ...mapActions({
-        clickChapterHeading: 'baseCurriculumGuide/setSelectedCampaign'
-      }),
-
-      classForButton (campaignID) {
-        return {
-          selected: this.selectedChapterId === campaignID,
-          'chapter-btn': true
-        }
-      },
-
-      clickChapterNav (campaignID) {
-        this.clickChapterHeading(campaignID)
-        window.tracker?.trackEvent('Curriculum Guide: Chapter Nav Clicked', { category: this.getTrackCategory, label: this.courseName })
+    clickChapterNav (campaignID) {
+      this.setSelectedCampaign(campaignID)
+      window.tracker?.trackEvent('Curriculum Guide: Chapter Nav Clicked', { category: this.getTrackCategory, label: this.courseName })
+      const course = this.chapters.find(c => c.campaignID === campaignID)
+      if (course && course.heading) {
+        const courseName = course.heading.toLowerCase()
+        application.router.navigate(`/teachers/guide/${this.$route.params.product}/${courseName}`, { replace: true })
       }
-    }
-  }
+    },
+    showNewIcon (campaignID) {
+      return campaignID === utils.campaignIDs.HACKSTACK
+    },
+    showBetaIcon (id) {
+      return id === utils.courseIDs.ENGLISH_LANGUAGE_ARTS
+    },
+  },
+}
 </script>
 
 <template>
   <div id="chapter-nav">
     <div
-      v-for="{ campaignID, heading } in chapterNav"
+      v-for="{ campaignID, heading, _id } in chapters"
       :key="campaignID"
       :class="classForButton(campaignID)"
-
       @click="() => clickChapterNav(campaignID)"
     >
       <div class="chapter-pill">
         {{ heading }}
+        <IconNew
+          v-if="showNewIcon(campaignID)"
+          class="icon new-icon"
+        />
+        <IconBeta
+          v-if="showBetaIcon(_id)"
+          class="icon beta-icon"
+        />
       </div>
     </div>
   </div>
@@ -87,9 +125,23 @@
   .chapter-pill {
     padding: 9px 20px;
     border-radius: 20px;
+    position: relative;
 
     &:hover {
       background-color: #f2f2f2;
+    }
+
+    .icon {
+      position: absolute;
+    }
+
+    .new-icon {
+      top: -10px;
+      right: -10px;
+    }
+    .beta-icon {
+      top: -15px;
+      right: -10px;
     }
   }
 

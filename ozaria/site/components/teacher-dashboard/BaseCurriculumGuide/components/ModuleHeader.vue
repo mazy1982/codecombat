@@ -1,93 +1,119 @@
 <script>
-  import ButtonSlides from './ButtonSlides'
-  import ButtonProjectReq from './ButtonProjectReq'
-  import ButtonExemplar from './ButtonExemplar'
+import ButtonSlides from './ButtonSlides'
+import ButtonProjectReq from './ButtonProjectReq'
+import ButtonExemplar from './ButtonExemplar'
 
-  import IconHelp from '../../common/icons/IconHelp'
-  import { mapGetters } from 'vuex'
-  import utils from 'core/utils'
-  export default {
-    components: {
-      ButtonSlides,
-      ButtonProjectReq,
-      ButtonExemplar,
-      IconHelp
+import IconHelp from '../../common/icons/IconHelp'
+import { mapGetters } from 'vuex'
+import utils from 'core/utils'
+
+import CodeRenderer from 'app/components/common/labels/CodeRenderer'
+import AccessLevelIndicator from 'app/components/common/elements/AccessLevelIndicator'
+
+export default {
+  components: {
+    ButtonSlides,
+    ButtonProjectReq,
+    ButtonExemplar,
+    IconHelp,
+    CodeRenderer,
+    AccessLevelIndicator,
+  },
+  props: {
+    moduleNum: {
+      required: true,
+      type: String,
     },
-    props: {
-      moduleNum: {
-        required: true,
-        type: String
-      },
-      courseName: {
-        type: String,
-        default: null
-      },
-      isCapstone: {
-        type: Boolean,
-        default: false
+    courseName: {
+      type: String,
+      default: null,
+    },
+    isCapstone: {
+      type: Boolean,
+      default: false,
+    },
+    moduleName: {
+      type: String,
+      default: '',
+    },
+    showLessonSlides: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  computed: {
+    ...mapGetters({
+      getCurrentCourse: 'baseCurriculumGuide/getCurrentCourse',
+      getCurrentModuleNames: 'baseCurriculumGuide/getCurrentModuleNames',
+      getCurrentModuleHeadingInfo: 'baseCurriculumGuide/getCurrentModuleHeadingInfo',
+      getCapstoneInfo: 'baseCurriculumGuide/getCapstoneInfo',
+      isOnLockedCampaign: 'baseCurriculumGuide/isOnLockedCampaign',
+      getTrackCategory: 'teacherDashboard/getTrackCategory',
+    }),
+
+    getModuleInfo () {
+      return this.getCurrentModuleHeadingInfo(this.moduleNum) || {}
+    },
+
+    getModuleTotalTimeInfo () {
+      return utils.i18n(this.getModuleInfo?.duration, 'total')
+    },
+    currentCourseSlug () {
+      return this.getCurrentCourse?.slug
+    },
+  },
+
+  methods: {
+    tooltipTimeContent () {
+      const time = []
+
+      if (this.getModuleInfo?.duration?.totalTimeRange) {
+        time.push(`<p><b>${this.$t('teacher_dashboard.class_time_range')}</b> ${utils.i18n(this.getModuleInfo?.duration, 'totalTimeRange')}</p>`)
+      }
+
+      if (this.getModuleInfo?.duration?.inGame) {
+        time.push(`<p><b>${this.$t('teacher_dashboard.in_game_play_time')}</b> ${utils.i18n(this.getModuleInfo?.duration, 'inGame')}</p>`)
+      }
+
+      return time.join('')
+    },
+
+    projectRubricTooltipContent () {
+      if (this.isOnLockedCampaign) {
+        return this.$t('teacher_dashboard.need_licenses_tooltip')
+      }
+      return this.$t('teacher_dashboard.project_rubric_tooltip')
+    },
+
+    exemplarProjectTooltipContent () {
+      if (this.isOnLockedCampaign) {
+        return this.$t('teacher_dashboard.need_licenses_tooltip')
+      }
+      return this.$t('teacher_dashboard.exemplar_projects_tooltip')
+    },
+
+    trackEvent (eventName) {
+      if (!this.isOnLockedCampaign && eventName) {
+        window.tracker?.trackEvent(eventName, { category: this.getTrackCategory, label: this.courseName })
       }
     },
-    computed: {
-      ...mapGetters({
-        getCurrentModuleNames: 'baseCurriculumGuide/getCurrentModuleNames',
-        getCurrentModuleHeadingInfo: 'baseCurriculumGuide/getCurrentModuleHeadingInfo',
-        getCapstoneInfo: 'baseCurriculumGuide/getCapstoneInfo',
-        isOnLockedCampaign: 'baseCurriculumGuide/isOnLockedCampaign',
-        getTrackCategory: 'teacherDashboard/getTrackCategory'
-      }),
-
-      getModuleInfo () {
-        return this.getCurrentModuleHeadingInfo(this.moduleNum) || {}
-      },
-
-      getModuleTotalTimeInfo () {
-        return utils.i18n(this.getModuleInfo?.duration, 'total')
-      }
-    },
-
-    methods: {
-      tooltipTimeContent () {
-        const time = []
-
-        if (this.getModuleInfo?.duration?.totalTimeRange) {
-          time.push(`<p><b>${this.$t('teacher_dashboard.class_time_range')}</b> ${utils.i18n(this.getModuleInfo?.duration, 'totalTimeRange')}</p>`)
-        }
-
-        if (this.getModuleInfo?.duration?.inGame) {
-          time.push(`<p><b>${this.$t('teacher_dashboard.in_game_play_time')}</b> ${utils.i18n(this.getModuleInfo?.duration, 'inGame')}</p>`)
-        }
-
-        return time.join('')
-      },
-
-      projectRubricTooltipContent () {
-        if (this.isOnLockedCampaign) {
-          return this.$t('teacher_dashboard.need_licenses_tooltip')
-        }
-        return this.$t('teacher_dashboard.project_rubric_tooltip')
-      },
-
-      exemplarProjectTooltipContent () {
-        if (this.isOnLockedCampaign) {
-          return this.$t('teacher_dashboard.need_licenses_tooltip')
-        }
-        return this.$t('teacher_dashboard.exemplar_projects_tooltip')
-      },
-
-      trackEvent (eventName) {
-        if (!this.isOnLockedCampaign && eventName) {
-          window.tracker?.trackEvent(eventName, { category: this.getTrackCategory, label: this.courseName })
-        }
-      }
-    }
-  }
+  },
+}
 </script>
 <template>
   <div class="header">
     <div class="module-header">
-      <h3>{{ $t('teacher_dashboard.module') }} {{ moduleNum }} {{ getCurrentModuleNames(moduleNum) }}</h3>
+      <h3>
+        <span>{{ $t('teacher_dashboard.module') }} </span>
+        <span
+          v-if="!(['junior', 'ai-hackstack'].includes(getCurrentCourse.slug))"
+        >
+          {{ moduleNum }}:
+        </span>
+        <code-renderer :content="moduleName || getCurrentModuleNames(moduleNum) || 'Introduction'" />
+      </h3>
       <div
-        v-if="getModuleTotalTimeInfo !== undefined"
+        v-if="getModuleTotalTimeInfo"
         class="time-row"
       >
         <p>{{ $t('teacher_dashboard.class_time') }} {{ getModuleTotalTimeInfo }}</p>
@@ -101,9 +127,13 @@
       </div>
     </div>
     <div class="buttons">
+      <access-level-indicator
+        :level="getModuleInfo.access"
+        :course-slug="currentCourseSlug"
+      />
       <!-- For this locked tooltip we use a span, as the disabled button doesn't trigger a tooltip. -->
       <template
-        v-if="getModuleInfo.lessonSlidesUrl"
+        v-if="getModuleInfo.lessonSlidesUrl && showLessonSlides"
       >
         <span
           v-if="isOnLockedCampaign"

@@ -14,9 +14,7 @@ CodeCombat is a multiplayer programming game for learning how to code.
 setup guide, extensive documentation, and much more to get started hacking!**
 
 It's both a startup and a community project, completely open source under the
-[MIT and Creative Commons licenses](http://codecombat.com/legal). It's the
-largest open source [CoffeeScript](http://coffeescript.org/) project by lines of
-code, and since it's a game (with [really cool tech](../../wiki/Third-party-software-and-services)),
+[MIT and Creative Commons licenses](http://codecombat.com/legal). Since it's a game (with [really cool tech](../../wiki/Third-party-software-and-services)),
 it's really fun to hack on. Join us in teaching the world to code! Your
 contribution will go on to show millions of players how cool programming can be.
 
@@ -25,10 +23,8 @@ contribution will go on to show millions of players how cool programming can be.
 Whether you're novice or pro, the CodeCombat team is ready to help you implement
 your ideas. Reach out on our [forum](http://discourse.codecombat.com), our
 [issue tracker](../../issues), or
-[our developer chat room on Slack](https://coco-slack-invite.herokuapp.com/), or
+[our developer chat room on Slack](https://communityinviter.com/apps/codecombat/join-community), or
 see the docs for [more on how to contribute](../../wiki/Developer-organization).
-
-[![Slack Status](https://coco-slack-invite.herokuapp.com/badge.svg)](https://coco-slack-invite.herokuapp.com/)
 
 ### [License](LICENSE)
 
@@ -41,11 +37,11 @@ Note: the levels on codecombat.com are [not open source](LICENSE-LEVELS.md).
 
 ### API
 
-We offer a partner API for SSO, user management, progress data, etc., with API docs [here](https://codecombat.com/api-docs). You'll need client credentials, so get in touch with us if you have a use case for that.
+We offer a partner API for SSO, user management, progress data, etc., with API docs [here](https://api-docs.codecombat.com/) and SDKs [here](https://github.com/codecombat/codecombat-api). You'll need client credentials, so get in touch with us if you have a use case for that.
 
 For the very simplest case that can power some data integrations with your CodeCombat account, you can fetch `https://codecombat.com/db/user/your-user-name-or-id` to get some user progress stats. For example, Beeminder uses this API to help you [commit to learning to code](https://www.beeminder.com/codecombat).
 
-### [Join Us!](http://blog.codecombat.com/why-you-should-open-source-your-startup)
+### [Join Us!](https://blog.codecombat.com/why-you-should-open-source-your-startup)
 
 ![Nick Winter](https://files.codecombat.com/wiki-images/avatars/Nick%20Winter/nick-avatar.png "Nick Winter")
 ![George Saines](https://files.codecombat.com/wiki-images/avatars/George%20Saines/george_small.png "George Saines")

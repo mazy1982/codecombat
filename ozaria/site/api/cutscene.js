@@ -8,9 +8,9 @@ import fetchJson from 'app/core/api/fetch-json'
  */
 export const getCutscene = slugOrId => {
   if (!slugOrId) {
-    throw new Error(`No slugOrId supplied`)
+    throw new Error('No slugOrId supplied')
   }
-  return fetchJson(`/db/cutscene/${slugOrId}`)
+  return fetchJson(`/db/cutscene/${slugOrId}`, { data: { cacheEdge: true } })
 }
 
 /**

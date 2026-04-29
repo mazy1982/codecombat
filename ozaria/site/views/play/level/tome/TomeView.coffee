@@ -19,7 +19,7 @@ require('ozaria/site/styles/play/level/tome/tome.sass')
 # SpellPaletteViews are destroyed and recreated whenever you switch Thangs.
 
 CocoView = require 'views/core/CocoView'
-template = require 'app/templates/play/level/tome/tome.pug'
+template = require 'ozaria/site/templates/play/level/tome/tome.pug'
 {me} = require 'core/auth'
 Spell = require './Spell'
 SpellPaletteView = require './SpellPaletteView'
@@ -41,6 +41,7 @@ module.exports = class TomeView extends CocoView
     'surface:sprite-selected': 'onSpriteSelected'
     'god:new-world-created': 'onNewWorld'
     'tome:comment-my-code': 'onCommentMyCode'
+    'tome:reset-my-code': 'onResetMyCode'
     'tome:select-primary-sprite': 'onSelectPrimarySprite'
 
   events:
@@ -95,7 +96,13 @@ module.exports = class TomeView extends CocoView
       console.log 'Commenting out', spellKey
       spell.view.updateACEText commentedSource
       spell.view.recompile false
-    @cast()
+    _.delay (=> @cast?()), 1000
+
+  onResetMyCode: (e) ->
+    for spellKey, spell of @spells when spell.canWrite()
+      spell.view.updateACEText spell.originalSource
+      spell.view.recompile false
+    _.delay (=> @cast?()), 1000
 
   onChangeMyCode: (solution) ->
     for spellKey, spell of @spells when spell.canWrite()
@@ -147,13 +154,13 @@ module.exports = class TomeView extends CocoView
           worker: @worker
           language: language
           spectateView: @options.spectateView
-          spectateOpponentCodeLanguage: @options.spectateOpponentCodeLanguage
           observing: @options.observing
           levelID: @options.levelID
           level: @options.level
           god: @options.god
           courseID: @options.courseID
           courseInstanceID: @options.courseInstanceID
+          classroomAceConfig: @options.classroomAceConfig
 
     for thangID, spellKeys of @thangSpells
       thang = @fakeProgrammableThang ? world.getThangByID thangID
@@ -239,8 +246,8 @@ module.exports = class TomeView extends CocoView
 
   reloadAllCode: ->
     if utils.getQueryVariable 'dev'
-      @options.playLevelView.spellPaletteView.destroy()
-      @updateSpellPalette @spellView.thang, @spellView.spell
+      @options.playLevelView?.spellPaletteView?.destroy()
+      @updateSpellPalette @spellView.thang, @spellView.spell if @spellView
     for spellKey, spell of @spells when spell.view and (spell.team is me.team or (spell.team in ['common', 'neutral', null]))
       maxStage = Math.max((@options.level.get('additionalGoals') || []).map((g) -> g.stage)...)
       if @options.level.get('ozariaType') == 'capstone' and @options?.capstoneStage == maxStage and @options.level.get('creativeMode') == true

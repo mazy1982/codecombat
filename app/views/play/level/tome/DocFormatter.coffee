@@ -1,8 +1,7 @@
 popoverTemplate = require 'app/templates/play/level/tome/spell_palette_entry_popover'
-{downTheChain} = require 'lib/world/world_utils'
 window.Vector = require 'lib/world/vector'  # So we can document it
 utils = require 'core/utils'
-aetherUtils = require 'lib/aether_utils'
+translateUtils = require 'lib/translate-utils'
 
 safeJSONStringify = (input, maxDepth) ->
   recursion = (input, path, depth) ->
@@ -55,14 +54,18 @@ module.exports = class DocFormatter
     else
       @doc.owner ?= 'this'
       ownerName = if @doc.owner isnt 'this' then @doc.owner else switch @options.language
-        when 'python', 'lua' then (if @options.useHero then 'hero' else 'self')
+        when 'python', 'lua' then 'hero'
         when 'java' then 'hero'
         when 'cpp' then 'hero'
         when 'coffeescript' then '@'
-        else (if @options.useHero then 'hero' else 'this')
+        else 'hero'
       ownerName = 'game' if @options.level.isType('game-dev')
       @doc.ownerName = ownerName
-      if @doc.type is 'function'
+      if @doc.type is 'spawnable'
+        @doc.shortName = @doc.name
+      else if @doc.ownerName is 'hero' and @options.level.get('product') is 'codecombat-junior'
+        @doc.shortName = @doc.name  # Functional programming: go() instead of hero.go()
+      else if @doc.type is 'function'
         [docName, args] = @getDocNameAndArguments()
         argNames = args.join ', '
         argString = if argNames then '__ARGS__' else ''
@@ -101,6 +104,8 @@ module.exports = class DocFormatter
       if translatedName isnt @doc.name
         @doc.translatedShortName = @doc.shortName.replace(@doc.name, translatedName)
 
+    if @doc.type is 'spawnable' and not @doc.example
+      @doc.example = javascript: "var #{_.string.camelize(@doc.name)} = game.spawnXY(\"#{@doc.name}\", 21, 20)"
 
     # Grab the language-specific documentation for some sub-properties, if we have it.
     toTranslate = [{obj: @doc, prop: 'description'}, {obj: @doc, prop: 'example'}]
@@ -113,7 +118,7 @@ module.exports = class DocFormatter
         # Translate into chosen code language.
         if prop is 'example'
           # Try to autogenerate the language-specific code example
-          obj[prop][@options.language] = aetherUtils.translateJS(obj[prop].javascript, @options.language, false)
+          obj[prop][@options.language] = translateUtils.translateJS(obj[prop].javascript, @options.language, false)
         else
           if @options.language in ['lua', 'coffeescript', 'python']
             # These are mostly the same, so use the Python or JavaScript ones if language-specific ones aren't available
@@ -152,21 +157,25 @@ module.exports = class DocFormatter
         obj[prop] = @replaceSpriteName obj[prop]  # Do this before using the template, otherwise marked might get us first.
 
     # Temporary hack to replace self|this with hero until we can update the docs
-    if @options.useHero
-      thisToken =
-        'python': /self/g,
-        'javascript': /this/g,
-        'java': /this/g,
-        'cpp': /this/g,
-        'lua': /self/g
+    thisToken =
+      'python': /self/g,
+      'javascript': /this/g,
+      'java': /this/g,
+      'cpp': /this/g,
+      'lua': /self/g
 
-      if thisToken[@options.language]
-        if @doc.example
-          @doc.example = @doc.example.replace thisToken[@options.language], 'hero'
-        if @doc.snippets?[@options.language]?.code
-          @doc.snippets[@options.language].code.replace thisToken[@options.language], 'hero'
-        if @doc.args
-          arg.example = arg.example.replace thisToken[@options.language], 'hero' for arg in @doc.args when arg.example
+    if thisToken[@options.language]
+      if @doc.example
+        @doc.example = @doc.example.replace thisToken[@options.language], 'hero'
+      if @doc.snippets?[@options.language]?.code
+        @doc.snippets[@options.language].code.replace thisToken[@options.language], 'hero'
+      if @doc.args
+        arg.example = arg.example.replace thisToken[@options.language], 'hero' for arg in @doc.args when arg.example
+
+    if @doc.description and @options.thangType
+      @doc.description = "![#{@options.thangType.get('name')}](#{@options.thangType.getPortraitURL()}) #{@doc.description}"
+
+    null
 
   formatPopover: ->
     [docName, args] = @getDocNameAndArguments()
@@ -180,24 +189,25 @@ module.exports = class DocFormatter
       marked: marked
       argumentExamples: argumentExamples
       writable: @options.writable
-      selectedMethod: @options.selectedMethod
       cooldowns: @inferCooldowns()
       item: @options.item
       _: _
+      product: @options.level.get('product')
     }
     owner = if @doc.owner is 'this' then @options.thang else window[@doc.owner]
     content = @replaceSpriteName content
-    content = content.replace /\#\{(.*?)\}/g, (s, properties) => @formatValue downTheChain(owner, properties.split('.'))
+    content = content.replace /\#\{(.*?)\}/g, (s, properties) => @formatValue utils.downTheChain(owner, properties.split('.'))
     content = content.replace /{([a-z]+)}([^]*?){\/\1}/g, (s, language, text) =>
       if language is @options.language then return text
       if language is 'javascript' and @options.language in ['java', 'cpp'] then return text
       return ''
+    $("<div>#{content}</div>").i18n().html()
 
   replaceSpriteName: (s) ->
     # Prefer type, and excluded the quotes we'd get with @formatValue
     name = @options.thang.type ? @options.thang.spriteName
     name = 'hero' if /Hero Placeholder/.test @options.thang.id
-    s.replace /#{spriteName}/g, name
+    s.replace /(# ?{spriteName}|`spriteName`)/g, name
 
   getDocNameAndArguments: ->
     return [@doc.name, []] unless @doc.type is 'function'

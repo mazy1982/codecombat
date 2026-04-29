@@ -189,12 +189,16 @@
       heroImage: -> 
         unless @$store.state.me.heroConfig?.thangType
           return "/images/pages/play/modal/captain.png"
-        else
-          slug = heroMap[@$store.state.me.heroConfig.thangType]
-          if !slug?
-            return "/images/pages/play/modal/captain.png"
-          else if slug in thangTypeConstants.heroClasses.Warrior 
-            return "/images/pages/play/modal/#{slug}.png"
+        slug = heroMap[@$store.state.me.heroConfig.thangType]
+        if !slug?
+          return "/images/pages/play/modal/captain.png"
+        juniorHeroReplacement = _.invert(thangTypeConstants.juniorHeroReplacements)[slug]
+        if juniorHeroReplacement
+          slug = juniorHeroReplacement
+        heroesWithImg = ['stalwart', 'samurai', 'raider', 'guardian', 'goliath', 'duelist', 'champion', 'captain', 'knight']
+        if slug in heroesWithImg
+          return "/images/pages/play/modal/#{slug}.png"
+        return "/images/pages/play/modal/captain.png"
       comboImage: ->
         if @allConceptsUsed
           return "/images/pages/play/modal/combo_complete.png"

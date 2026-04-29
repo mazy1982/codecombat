@@ -10,8 +10,8 @@ import { BACKGROUND_VOLUME } from './constants'
 
 // Returns a voice over command from list of audio files
 // Includes a way to stop audio playing if user skips ahead, or goes backwards.
-const createVoiceOverCommand = (voiceOverObj) => {
-  const soundIdPromise = store.dispatch('voiceOver/preload', voiceOverObj)
+const createVoiceOverCommand = (dialogNode, speakerThangType) => {
+  const soundIdPromise = store.dispatch('voiceOver/preload', { dialogNode, speakerThangType })
   const voiceOverPlayCommand = new SyncFunction(() =>
     store.dispatch('voiceOver/playVoiceOver', soundIdPromise)
   )
@@ -23,6 +23,20 @@ const createVoiceOverCommand = (voiceOverObj) => {
   }
 
   return voiceOverPlayCommand
+}
+
+const standardizeSpeaker = (speaker) => {
+  speaker = speaker.replace(/cinematic-/, '')
+  speaker = speaker.replace(/ghost-/, '')
+  speaker = speaker.replace(/-ghost/, '')
+  speaker = speaker.replace(/-with-rabbit/, '')
+  speaker = speaker.replace(/-rabbit/, '')
+  speaker = speaker.replace(/past-/, '')
+  speaker = speaker.replace(/young-/, '')
+  speaker = speaker.replace(/-01/, '')
+  speaker = speaker.replace(/-restored/, '')
+  speaker = speaker.replace(/salazar-dragon/, 'dragon-salazar')
+  return speaker
 }
 
 export class SoundSystem {
@@ -47,10 +61,22 @@ export class SoundSystem {
       const musicCommand = new SyncFunction(async () => {
         await store.dispatch('audio/stopTrack', 'background')
 
+        const srcFiles = []
+        if (music.files.mp3) {
+          srcFiles.push(music.files.mp3)
+        }
+        if (music.files.ogg) {
+          srcFiles.push(music.files.ogg)
+          if (!music.files.mp3) {
+            // We usually have an .mp3 with the same filename, but in many cinematics we didn't specify it.
+            // Safari cannot play .ogg, so we need to specify the .mp3 file.
+            srcFiles.push(music.files.ogg.replace(/\.ogg$/, '.mp3'))
+          }
+        }
         await store.dispatch('audio/playSound', {
           track: 'background',
           volume: BACKGROUND_VOLUME,
-          src: Object.values(music.files).map(f => `/file/${f}`),
+          src: srcFiles.map(f => `/file/${f}`),
           loop: music.loop
         })
       })
@@ -77,11 +103,22 @@ export class SoundSystem {
    * System interface method that CinematicParser calls on each dialogNode
    * of the cinematic.
    * @param {DialogNode} dialogNode
+   * @param {Object} shot
+   * @param {Object} speakerToThangTypeSlugMap
    * @returns {AbstractCommand[]}
    */
-  parseDialogNode (dialogNode) {
+  parseDialogNode (dialogNode, shot, speakerToThangTypeSlugMap) {
     const soundCommands = []
-
+    let speakerThangType = speakerToThangTypeSlugMap[dialogNode.speaker]
+    if (dialogNode.textLocation && dialogNode.textLocation.y > 500) {
+      // It's always mouse if it's low on the screen
+      speakerThangType = 'mouse'
+    }
+    if (!speakerThangType) {
+      // It's usually (always?) the hero
+      speakerThangType = 'hero'
+    }
+    speakerThangType = standardizeSpeaker(speakerThangType)
     const soundEffects = getSoundEffects(dialogNode) || []
     soundEffects.forEach(({ sound, triggerStart }) => {
       const soundIdPromise = store.dispatch('audio/playSound', {
@@ -100,9 +137,10 @@ export class SoundSystem {
     })
 
     const voiceOver = getVoiceOver(dialogNode)
-    if (voiceOver) {
+    const hasText = dialogNode?.text && /[a-z]/i.test(dialogNode.text)
+    if (voiceOver || hasText) {
       soundCommands.push(
-        createVoiceOverCommand(voiceOver)
+        createVoiceOverCommand(dialogNode, speakerThangType)
       )
     } else {
       // If no voice over, cut any VO that may be playing.

@@ -2,13 +2,13 @@
 Rectangle = require './rectangle'
 
 module.exports = class Grid
-  constructor: (thangs, @width, @height, @padding=0, @left=0, @bottom=0, @rogue=false, @resolution=1) ->
+  constructor: (thangs, @width, @height, @padding=0, @left=0, @bottom=0, @rogue=false, @resolution=1, @unmergeObstacles=false, @centerRounding='round') ->
     # Round grid size to integer multiple of resolution
     # Ex.: if resolution is 2, then w: 8.1, h: 9.9, l: 1.9, b: -0.1 -> w: 10, h: 10, l: 0, b: -2
     @width  = Math.ceil( @width  / @resolution) * @resolution
     @height = Math.ceil( @height / @resolution) * @resolution
-    @left   = Math.floor(@left   / @resolution) * @resolution
-    @bottom = Math.floor(@bottom / @resolution) * @resolution
+    @left   = Math.floor(@left   / @resolution) * @resolution unless @rogue
+    @bottom = Math.floor(@bottom / @resolution) * @resolution unless @rogue
     @update thangs
 
   update: (thangs) ->
@@ -26,9 +26,10 @@ module.exports = class Grid
         rect = thang.rectangle()
       else
         rect = new Rectangle(thang.pos.x, thang.pos.y, thang.width or 2, thang.height or 2, thang.rotation or 0)
-      if @rogue
+      if @rogue and not (@isStructural(thang) and @unmergeObstacles)
         # Just put it in one place: the center
-        @grid[@yToCol(rect.y, Math.round)]?[@xToRow(rect.x, Math.round)]?.push thang
+        rounding = Math[@centerRounding]  # We had 'round'. Junior needs 'floor'. Not sure if 'floor' is correct or what.
+        @grid[@yToCol(rect.y, rounding)]?[@xToRow(rect.x, rounding)]?.push thang
       else
         # Put it in all the places it touches
         [minX, maxX, minY, maxY] = [9001, -9001, 9001, -9001]
@@ -48,6 +49,14 @@ module.exports = class Grid
         for thang in @grid[y][x]
           thangs.push thang if thang.collides and not (thang in thangs) and thang.id isnt 'Add Thang Phantom'
     thangs
+
+  exactContents: (gx, gy) ->
+    # Find only the thangs inside one grid cell, unlike contents which needs to span cells
+    y = @yToCol(gy, Math.floor)
+    x = @xToRow(gx, Math.floor)
+    return [] if y < 0 or y >= @grid.length
+    return [] if x < 0 or x >= @grid[0].length
+    (thang for thang in @grid[y][x] when thang.collides and thang.id isnt 'Add Thang Phantom')
 
   yToCol: (y, rounding) -> (rounding ? Math.floor)((y - @bottom) / @resolution)
 
@@ -76,15 +85,16 @@ module.exports = class Grid
     upsideDown.reverse()
     ((@charForThangs thangs, rogue, r, c, axisLabels for thangs, c in row).join(' ') for row, r in upsideDown).join("\n")
 
-  toTable: (rogue=false, axisLabels=true) ->
+  toSimpleMovementChars: (rogue=false, axisLabels=true) ->
     upsideDown = _.clone @grid
     upsideDown.reverse()
     ((@charForThangs thangs, rogue, r, c, axisLabels for thangs, c in row) for row, r in upsideDown)
 
-  toTableNames: ->
+  toSimpleMovementNames: ->
     upsideDown = _.clone @grid
     upsideDown.reverse()
-    ((@nameForThangs thangs, r, c for thangs, c in row) for row, r in upsideDown)
+    # Comma-separated list of names for all Thangs significant enough to read aloud to the player
+    (((@nameForThangs([thang], r, c) for thang in thangs).filter((name) -> name isnt ' ').join(', ') for thangs, c in row) for row, r in upsideDown)
 
   charForThangs: (thangs, rogue, row, col, axisLabels) ->
     # TODO: have the Thang know its own letter
@@ -99,6 +109,7 @@ module.exports = class Grid
       return '#' if col is @grid.length - 1
     return ' ' unless thangs.length or (axisLabels and isAxis)
     for t in thangs
+      # TODO: order thangs by significance
       return '@' if /Hero Placeholder/.test t.id
       return '$' if /Hero Goal/.test t.spriteName
       return '%' if /Dog Goal/.test t.spriteName
@@ -112,6 +123,12 @@ module.exports = class Grid
       return 'Q' if /Quetzal/.test t.spriteName
       return 'T' if /Tengshe/.test t.spriteName
       return '*' if /^Dot/.test t.spriteName
+      return '*' if /^Movement Stone/.test t.spriteName
+      return 'S' if /Skeleton/.test t.spriteName
+      return '-' if /Wall/.test(t.spriteName) and t.width > t.height
+      return '|' if /Wall/.test(t.spriteName) and t.width < t.height
+      return '#' if /Wall/.test(t.spriteName) and t.width is t.height
+      return '>' if /Stairs/.test(t.spriteName)
     if axisLabels
       # 1-indexed, with 1 at top, to match how screen readers think of tables
       return 1 if isOrigin
@@ -130,6 +147,7 @@ module.exports = class Grid
       return 'Edge' if col is @grid.length - 1
     return ' ' unless thangs.length
     for t in thangs
+      # TODO: order thangs by significance
       return 'Hero' if /Hero Placeholder/.test t.id
       return 'Goal' if /Hero Goal/.test t.spriteName
       return 'Dog Goal' if /Dog Goal/.test t.spriteName
@@ -143,5 +161,15 @@ module.exports = class Grid
       return 'Quetzal' if /Quetzal/.test t.spriteName
       return 'Tengshe' if /Tengshe/.test t.spriteName
       return 'Dot' if /^Dot/.test t.spriteName
+      return 'Dot' if /Movement Stone/.test t.spriteName
+      return 'Wall' if /Wall/.test t.spriteName
+      return 'Stairs' if /Stairs/.test t.spriteName
       return ' ' if t.spriteName is 'Obstacle'
     return thangs[0].spriteName
+
+  isStructural: (t) ->
+    # TODO: DRY from copy in world_utils
+    t.stateless and t.collides and t.collisionCategory is 'obstacles' and t.shape in ['box', 'sheet'] and  # Can only do wall-like obstacle Thangs.
+    t.spriteName isnt 'Ice Wall' and t.restitution is 1.0 and  # Fixed restitution value on 2016-03-15, but it causes discrepancies, so disabled for Kelvintaph levels.
+    /Wall/.test(t.spriteName) and  # Not useful to do Thangs that aren't actually walls because they're usually not on a grid
+    (t.pos.x - t.width / 2 >= 0) and (t.pos.y - t.height / 2 >= 0)  # Grid doesn't handle negative numbers, so don't coalesce walls below/left of 0, 0.

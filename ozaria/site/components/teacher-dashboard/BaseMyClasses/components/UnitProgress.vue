@@ -1,44 +1,54 @@
 <script>
-  export default {
-    props: {
-      name: {
-        type: String,
-        required: true
-      },
-
-      isAssigned: {
-        type: Boolean,
-        default: false
-      },
-
-      completionPercentage: {
-        type: Number,
-        default: 0
-      }
+export default {
+  props: {
+    name: {
+      type: String,
+      required: true
     },
-    computed: {
-      progressWidth () {
-        return this.completionPercentage * 185
-      },
 
-      barColor () {
-        if (this.completionPercentage === 1) {
-          return '#2dcd38'
-        } else {
-          return '#1ad0ff'
-        }
+    isAssigned: {
+      type: Boolean,
+      default: false
+    },
+
+    completionPercentage: {
+      type: Number,
+      default: 0
+    }
+  },
+  computed: {
+    progressWidth () {
+      return this.completionPercentage * 120
+    },
+
+    barColor () {
+      if (this.completionPercentage === 1) {
+        return '#2dcd38'
+      } else {
+        return '#9487ff'
       }
     }
   }
+}
 </script>
 <template>
   <div class="unit-progress">
     <div class="flex-row titles">
-      <p class="chapter-header">{{ name }}</p>
-      <p v-if="isAssigned" class="assigned">✅ Assigned</p>
+      <p class="chapter-header">
+        {{ name }}
+      </p>
+      <p
+        v-if="isAssigned"
+        class="assigned"
+      >
+        ✅
+      </p>
     </div>
     <div class="outer-loading-bar">
-      <div class="inner-loading-bar" :style="{ width: `${progressWidth}px`, backgroundColor: barColor }" />
+      <div
+        class="inner-loading-bar"
+        :style="{ width: `${progressWidth}px`, backgroundColor: barColor }"
+      />
     </div>
   </div>
 </template>
@@ -60,7 +70,7 @@
   }
 
   .outer-loading-bar {
-    width: 185px;
+    width: 120px;
     height: 16px;
 
     border: 1px solid #adadad;
@@ -83,6 +93,7 @@
     color: #545b64;
     letter-spacing: 0.3333px;
     font-weight: 600;
+    margin-bottom: 5px;
   }
 
   .assigned {

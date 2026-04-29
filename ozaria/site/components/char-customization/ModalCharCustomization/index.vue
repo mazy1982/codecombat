@@ -1,317 +1,379 @@
 <script>
-  import BaseModalContainer from '../../common/BaseModalContainer'
-  import Surface from '../common/Surface'
-  // TODO migrate api calls to the Vuex store.
-  import { getThangTypeOriginal } from '../../../../../app/core/api/thang-types'
-  import { mapGetters, mapActions } from 'vuex'
+import BaseModalContainer from '../../common/BaseModalContainer'
+import Surface from '../common/Surface'
+// TODO migrate api calls to the Vuex store.
+import { getThangTypeOriginal } from '../../../../../app/core/api/thang-types'
+import { mapGetters, mapActions } from 'vuex'
+import * as focusTrap from 'focus-trap'
 
-  const { hslToHex } = require('core/utils')
-  const ThangType = require('models/ThangType')
-  const ThangTypeConstants = require('lib/ThangTypeConstants')
+const { hslToHex } = require('core/utils')
+const ThangType = require('models/ThangType')
+const ThangTypeConstants = require('lib/ThangTypeConstants')
 
-  const hslToHex_aux = ({ hue, saturation, lightness }) => hslToHex([hue, saturation, lightness])
+const hslToHex_aux = ({ hue, saturation, lightness }) => hslToHex([hue, saturation, lightness])
 
-  // TODO Ozaria Heroes need to be driven from the database.
-  const ozariaHeroes = {
-    'hero-b': {
-      buttonIcon: 'Replace HeroB icon',
-      silhouetteImagePath: '/images/ozaria/char-customization/hero-b-idle.png',
-      thang: {
-        scaleFactorX: 1,
-        scaleFactorY: 1,
-        pos: { y: -38 }
+const tintNames = {
+  hair: ['paprika', 'maroon', 'hot purple', 'tulip tree', 'bazaar', 'gold drop', 'medium red violet', 'lachmara'],
+  skin: ['sorbus', 'froly', 'tosca', 'sandy beach', 'tacao', 'karma', 'burning sand', 'smoke tree']
+}
+
+// TODO Ozaria Heroes need to be driven from the database.
+const ozariaHeroes = {
+  'hero-b': {
+    buttonIcon: 'Replace HeroB icon',
+    silhouetteImagePath: '/images/ozaria/char-customization/hero-b-idle.png',
+    thang: {
+      scaleFactorX: 1,
+      scaleFactorY: 1,
+      pos: { y: -38 }
+    },
+    alt: 'Hero Connie'
+  },
+  'hero-a': {
+    buttonIcon: 'Replace HeroA icon',
+    silhouetteImagePath: '/images/ozaria/char-customization/hero-a-idle2.png',
+    thang: {
+      scaleFactorX: 1,
+      scaleFactorY: 1,
+      pos: { y: -43 }
+    },
+    alt: 'Hero Lars'
+  },
+  'hero-c': {
+    buttonIcon: 'Replace HeroC icon',
+    silhouetteImagePath: '/images/ozaria/char-customization/hero-c-idle.png',
+    thang: {
+      scaleFactorX: 0.9,
+      scaleFactorY: 0.9,
+      pos: { x: 1, y: -38 }
+    },
+    alt: 'Hero Amethyst'
+  },
+  'hero-d': {
+    buttonIcon: 'Replace HeroD icon',
+    silhouetteImagePath: '/images/ozaria/char-customization/hero-d-idle.png',
+    thang: {
+      scaleFactorX: 1,
+      scaleFactorY: 1,
+      pos: { y: -38 }
+    },
+    alt: 'Hero Steven'
+  },
+  'hero-e': {
+    buttonIcon: 'Replace HeroE icon',
+    silhouetteImagePath: '/images/ozaria/char-customization/hero-e-idle.png',
+    thang: {
+      scaleFactorX: 1,
+      scaleFactorY: 1,
+      pos: { y: -38 }
+    },
+    alt: 'Hero Garnet'
+  },
+  'hero-f': {
+    buttonIcon: 'Replace HeroF icon',
+    silhouetteImagePath: '/images/ozaria/char-customization/hero-f-idle.png',
+    thang: {
+      scaleFactorX: 1,
+      scaleFactorY: 1,
+      pos: { y: -38 }
+    },
+    alt: 'Hero Jamie'
+  }
+}
+
+module.exports = Vue.extend({
+  name: 'CharacterCustomization',
+  components: {
+    surface: Surface,
+    BaseModalContainer
+  },
+
+  props: {
+    showCancelButton: {
+      type: Boolean,
+      default: true
+    },
+    isInModal: {
+      type: Boolean,
+      default: true
+    }
+  },
+
+  data: () => ({
+    characterName: '',
+    loadedThangTypes: {},
+    loaded: false,
+    ozariaHeroes,
+    selectedHero: null,
+    tintIndexSelection: {
+      hair: -1,
+      skin: -1
+    },
+    tintNames,
+    submitButtonDisabled: false,
+    focusTrapDeactivated: false,
+    focusTrap: null
+  }),
+
+  async created () {
+    // TODO handle_error_ozaria - Retry logic is recommended.
+    const loader = []
+
+    const tintLoadingPromise = this.fetchTints()
+    loader.push(tintLoadingPromise)
+
+    for (const heroKey in ozariaHeroes) {
+      const hero = ozariaHeroes[heroKey]
+      const thangTypeOriginal = ThangTypeConstants.ozariaCinematicHeroes[heroKey]
+      const thangLoading = getThangTypeOriginal(thangTypeOriginal)
+        .then(attr => new ThangType(attr))
+        .then(thangType => this.loadedThangTypes[heroKey] = thangType)
+      loader.push(thangLoading)
+    }
+
+    await Promise.all(loader)
+      .then(() => this.loaded = true)
+
+    this.setInitialData()
+    const selectedHeroOriginalId = ThangTypeConstants.ozariaCinematicHeroes[this.selectedHero]
+    window.tracker.trackEvent('Loaded Character Customization',
+                              { selectedHeroOriginalId },
+                              ['Google Analytics'])
+  },
+
+  mounted () {
+    if (!this.isInModal) {
+      return
+    }
+    // TODO: do this generally for all modals
+    this.focusTrap = focusTrap.createFocusTrap(this.$el, {
+      initialFocus: 'input',
+      onDeactivate: () => {
+        this.focusTrapDeactivated = true
+      }
+    })
+    this.focusTrap.activate()
+    // fallback
+    if (this.focusTrapDeactivated) this.deactivateFocusTrap()
+  },
+
+  beforeDestroy () {
+    const selectedHeroOriginalId = ThangTypeConstants.ozariaCinematicHeroes[this.selectedHero]
+    window.tracker.trackEvent('Unloaded Character Customization',
+                              { selectedHeroOriginalId },
+                              ['Google Analytics'])
+    this.deactivateFocusTrap()
+  },
+
+  computed: {
+    ...mapGetters('tints', [
+      'characterCustomizationTints'
+    ]),
+
+    bodyTypes () {
+      const bodyTypes = []
+      for (const k in ozariaHeroes) {
+        const hero = {
+          slug: k,
+          onClick: () => this.selectBodyType(k),
+          silhouetteImagePath: ozariaHeroes[k].silhouetteImagePath,
+          alt: ozariaHeroes[k].alt
+        }
+
+        bodyTypes.push(hero)
+      }
+      return bodyTypes
+    },
+
+    hairSwatches () {
+      return this.tintBySlug('hair').map(({ hairLight }) => hslToHex_aux(hairLight))
+    },
+
+    skinSwatches () {
+      return this.tintBySlug('skin').map(({ skinLight }) => hslToHex_aux(skinLight))
+    },
+
+    // Sets up the thang with color customization
+    selectedThang () {
+      const selectedThang = ozariaHeroes[this.selectedHero].thang
+      selectedThang.getLankOptions = () => {
+        const options = { colorConfig: {} }
+        const playerTints = [this.tintBySlug('hair')[this.tintIndexSelection.hair], this.tintBySlug('skin')[this.tintIndexSelection.skin]]
+        playerTints.forEach(tint => {
+          options.colorConfig = _.merge(options.colorConfig, tint)
+        })
+        return options
+      }
+      return selectedThang
+    },
+
+    responsiveColumnClassesHeroes () {
+      return this.isInModal ? 'col-xs-4' : 'col-md-4 col-sm-6 col-xs-12'
+    },
+
+    responsiveColumnClassesPreview () {
+      return this.isInModal ? 'webgl-area col-xs-4' : 'webgl-area col-md-4 col-sm-6 col-xs-12'
+    },
+
+    responsiveColumnClassesColors () {
+      return this.isInModal ? 'col-xs-4' : 'col-md-4 col-sm-12 col-xs-12'
+    }
+  },
+
+  methods: {
+    ...mapActions('tints', ['fetchTints']),
+
+    setInitialData () {
+      const ozariaUserOptions = me.get('ozariaUserOptions') || {}
+      this.characterName = ozariaUserOptions.playerHeroName || ''
+
+      if (ozariaUserOptions.cinematicThangTypeOriginal) {
+        for (const key of Object.keys(ozariaHeroes)) {
+          const ozariaHeroOriginal = ThangTypeConstants.ozariaCinematicHeroes[key]
+          if (ozariaUserOptions.cinematicThangTypeOriginal === ozariaHeroOriginal) {
+            this.selectedHero = key
+          }
+        }
+      } else {
+        this.selectedHero = Object.keys(ozariaHeroes)[Math.floor(Math.random() * Object.keys(ozariaHeroes).length)]
+      }
+
+      for (const { slug, colorGroups } of (ozariaUserOptions.tints || [])) {
+        const allowedTints = this.tintBySlug(slug)
+        for (let i = 0; i < allowedTints.length; i++) {
+          if (_.isEqual(allowedTints[i], colorGroups)) {
+            Vue.set(this.tintIndexSelection, slug, i)
+          }
+        }
+      }
+
+      for (const slug in this.tintIndexSelection) {
+        if (this.tintIndexSelection[slug] === -1) {
+          const allowedTints = this.tintBySlug(slug)
+          Vue.set(this.tintIndexSelection, slug, Math.floor(Math.random() * allowedTints.length))
+        }
       }
     },
-    'hero-a': {
-      buttonIcon: 'Replace HeroA icon',
-      silhouetteImagePath: '/images/ozaria/char-customization/hero-a-idle2.png',
-      thang: {
-        scaleFactorX: 1,
-        scaleFactorY: 1,
-        pos: { y: -43 }
-      }
+
+    selectBodyType (hero) {
+      this.selectedHero = hero
     },
-    'hero-c': {
-      buttonIcon: 'Replace HeroC icon',
-      silhouetteImagePath: '/images/ozaria/char-customization/hero-c-idle.png',
-      thang: {
-        scaleFactorX: 0.9,
-        scaleFactorY: 0.9,
-        pos: { x: 1, y: -38 }
-      }
+
+    tintBySlug (slug) {
+      return ((this.characterCustomizationTints.find(t => t.slug === slug) || {}).allowedTints || [])
     },
-    'hero-d': {
-      buttonIcon: 'Replace HeroD icon',
-      silhouetteImagePath: '/images/ozaria/char-customization/hero-d-idle.png',
-      thang: {
-        scaleFactorX: 1,
-        scaleFactorY: 1,
-        pos: { y: -38 }
-      }
+
+    onClickSwatch (slug, i) {
+      Vue.set(this.tintIndexSelection, slug, i)
     },
-    'hero-e': {
-      buttonIcon: 'Replace HeroE icon',
-      silhouetteImagePath: '/images/ozaria/char-customization/hero-e-idle.png',
-      thang: {
-        scaleFactorX: 1,
-        scaleFactorY: 1,
-        pos: { y: -38 }
+
+    handleSubmit () {
+      this.submitButtonDisabled = true
+      let valid = null
+      try {
+        valid = this.$refs['name-form'].reportValidity()
+      } catch (_e) {
+        // If there is an error, default to true because not all browsers support this method.
+        // We still check the contents of the input in the next check,
+        valid = true
       }
+      const name = this.characterName.trim()
+      if (!valid) {
+        this.submitButtonDisabled = false
+        return
+      }
+      if (name === '') {
+        // TODO: handle_error_ozaria
+        this.submitButtonDisabled = false
+        return noty({ text: 'Invalid Name', layout: 'topCenter', type: 'error', timeout: 8000 })
+      }
+
+      const ozariaConfig = me.get('ozariaUserOptions') || {}
+      ozariaConfig.playerHeroName = name
+
+      ozariaConfig.tints = [
+        {
+          slug: 'hair',
+          colorGroups: this.tintBySlug('hair')[this.tintIndexSelection.hair]
+        },
+        {
+          slug: 'skin',
+          colorGroups: this.tintBySlug('skin')[this.tintIndexSelection.skin]
+        }
+      ]
+
+      ozariaConfig.cinematicThangTypeOriginal = ThangTypeConstants.ozariaCinematicHeroes[this.selectedHero]
+
+      ozariaConfig.isometricThangTypeOriginal = ThangTypeConstants.ozariaHeroes[this.selectedHero]
+
+      me.set('ozariaUserOptions', ozariaConfig)
+
+      // TODO handle_error_ozaria - What happens on failure?
+      me.save(null, {
+        success: () => {
+          // TODO button should become disabled while saving.
+          this.submitButtonDisabled = false
+          this.$emit('saved')
+        }
+      })
     },
-    'hero-f': {
-      buttonIcon: 'Replace HeroF icon',
-      silhouetteImagePath: '/images/ozaria/char-customization/hero-f-idle.png',
-      thang: {
-        scaleFactorX: 1,
-        scaleFactorY: 1,
-        pos: { y: -38 }
-      }
+
+    deactivateFocusTrap () {
+      this.focusTrapDeactivated = true
+      this.focusTrap?.deactivate()
     }
   }
-
- module.exports = Vue.extend({
-    components: {
-      'surface': Surface,
-      BaseModalContainer
-    },
-
-    props: {
-      showCancelButton: {
-        type: Boolean,
-        default: true
-      },
-      isInModal: {
-        type: Boolean,
-        default: true
-      }
-    },
-
-    data: () => ({
-      characterName: "",
-      loadedThangTypes: {},
-      loaded: false,
-      ozariaHeroes: ozariaHeroes,
-      selectedHero: null,
-      tintIndexSelection: {
-        hair: -1,
-        skin: -1
-      },
-      submitButtonDisabled: false
-    }),
-
-    async created () {
-      // TODO handle_error_ozaria - Retry logic is recommended.
-      const loader = []
-
-      const tintLoadingPromise = this.fetchTints()
-      loader.push(tintLoadingPromise)
-
-      for (const heroKey in ozariaHeroes) {
-        const hero = ozariaHeroes[heroKey]
-        const thangTypeOriginal = ThangTypeConstants.ozariaCinematicHeroes[heroKey]
-        const thangLoading = getThangTypeOriginal(thangTypeOriginal)
-          .then(attr => new ThangType(attr))
-          .then(thangType => this.loadedThangTypes[heroKey] = thangType)
-        loader.push(thangLoading)
-      }
-
-      await Promise.all(loader)
-        .then(() => this.loaded = true)
-
-      this.setInitialData()
-      const selectedHeroOriginalId = ThangTypeConstants.ozariaCinematicHeroes[this.selectedHero];
-      window.tracker.trackEvent('Loaded Character Customization',
-        {selectedHeroOriginalId},
-        ['Google Analytics'])
-    },
-
-    beforeDestroy () {
-      const selectedHeroOriginalId = ThangTypeConstants.ozariaCinematicHeroes[this.selectedHero];
-      window.tracker.trackEvent('Unloaded Character Customization',
-        {selectedHeroOriginalId},
-        ['Google Analytics'])
-    },
-
-    computed: {
-      ...mapGetters('tints', [
-        'characterCustomizationTints'
-      ]),
-
-      bodyTypes () {
-        const bodyTypes = []
-        for (const k in ozariaHeroes) {
-          const hero = {
-            slug: k,
-            onClick: () => this.selectBodyType(k),
-            silhouetteImagePath: ozariaHeroes[k].silhouetteImagePath
-          }
-
-          bodyTypes.push(hero)
-        }
-        return bodyTypes
-      },
-
-      hairSwatches () {
-        return this.tintBySlug('hair').map(({ hairLight }) => hslToHex_aux(hairLight))
-      },
-
-      skinSwatches () {
-        return this.tintBySlug('skin').map(({ skinLight }) => hslToHex_aux(skinLight))
-      },
-
-      // Sets up the thang with color customization
-      selectedThang () {
-        const selectedThang = ozariaHeroes[this.selectedHero].thang
-        selectedThang.getLankOptions = () => {
-          const options = { colorConfig: {} }
-          const playerTints = [ this.tintBySlug('hair')[this.tintIndexSelection.hair], this.tintBySlug('skin')[this.tintIndexSelection.skin] ]
-          playerTints.forEach(tint => {
-            options.colorConfig = _.merge(options.colorConfig, tint)
-          })
-          return options
-        }
-        return selectedThang
-      },
-
-      responsiveColumnClassesHeroes () {
-        return this.isInModal ? 'col-xs-4' : 'col-md-4 col-sm-6 col-xs-12'
-      },
-
-      responsiveColumnClassesPreview () {
-        return this.isInModal ? 'webgl-area col-xs-4' : 'webgl-area col-md-4 col-sm-6 col-xs-12'
-      },
-
-      responsiveColumnClassesColors () {
-        return this.isInModal ? 'col-xs-4' : 'col-md-4 col-sm-12 col-xs-12'
-      },
-    },
-
-    methods: {
-      ...mapActions('tints', ['fetchTints']),
-
-      setInitialData () {
-        const ozariaUserOptions = me.get('ozariaUserOptions') || {}
-        this.characterName = ozariaUserOptions.playerHeroName || ''
-
-        if (ozariaUserOptions.cinematicThangTypeOriginal) {
-          for (const key of Object.keys(ozariaHeroes)) {
-            const ozariaHeroOriginal = ThangTypeConstants.ozariaCinematicHeroes[key]
-            if (ozariaUserOptions.cinematicThangTypeOriginal === ozariaHeroOriginal) {
-              this.selectedHero = key
-            }
-          }
-        } else {
-          this.selectedHero = Object.keys(ozariaHeroes)[Math.floor(Math.random() * Object.keys(ozariaHeroes).length)]
-        }
-
-        for (const { slug, colorGroups } of (ozariaUserOptions.tints || [])) {
-          const allowedTints = this.tintBySlug(slug)
-          for (let i = 0; i < allowedTints.length; i++) {
-            if (_.isEqual(allowedTints[i], colorGroups)) {
-              Vue.set(this.tintIndexSelection, slug, i)
-            }
-          }
-        }
-
-        for (const slug in this.tintIndexSelection) {
-          if (this.tintIndexSelection[slug] === -1) {
-            const allowedTints = this.tintBySlug(slug)
-            Vue.set(this.tintIndexSelection, slug, Math.floor(Math.random() * allowedTints.length))
-          }
-        }
-      },
-
-      selectBodyType (hero) {
-        this.selectedHero = hero
-      },
-
-      tintBySlug (slug) {
-        return ((this.characterCustomizationTints.find(t => t.slug === slug) || {}).allowedTints || [])
-      },
-
-      onClickSwatch (slug, i) {
-        Vue.set(this.tintIndexSelection, slug, i)
-      },
-
-      handleSubmit () {
-        this.submitButtonDisabled = true;
-        let valid = null
-        try {
-          valid = this.$refs['name-form'].reportValidity()
-        } catch (_e) {
-          // If there is an error, default to true because not all browsers support this method.
-          // We still check the contents of the input in the next check,
-          valid = true
-        }
-        const name = this.characterName.trim()
-        if (!valid) {
-          return
-        }
-        if (name === '') {
-          // TODO: handle_error_ozaria
-          return noty({ text: 'Invalid Name', layout: 'topCenter', type: 'error', timeout: 8000 })
-        }
-
-        const ozariaConfig = me.get('ozariaUserOptions') || {}
-        ozariaConfig.playerHeroName = name
-
-        ozariaConfig.tints = [
-          {
-            slug: 'hair',
-            colorGroups: this.tintBySlug('hair')[this.tintIndexSelection.hair]
-          },
-          {
-            slug: 'skin',
-            colorGroups: this.tintBySlug('skin')[this.tintIndexSelection.skin]
-          }
-        ]
-
-        ozariaConfig.cinematicThangTypeOriginal = ThangTypeConstants.ozariaCinematicHeroes[this.selectedHero]
-
-        ozariaConfig.isometricThangTypeOriginal = ThangTypeConstants.ozariaHeroes[this.selectedHero]
-
-        me.set('ozariaUserOptions', ozariaConfig)
-
-        // TODO handle_error_ozaria - What happens on failure?
-        me.save(null, {
-          success: () => {
-            // TODO button should become disabled while saving.
-            this.submitButtonDisabled = false;
-            this.$emit('saved')
-          },
-        })
-      }
-    }
-  })
+})
 </script>
 
 <template>
   <base-modal-container>
     <div class="container">
-      <div class="row" style="text-align: center;">
-        <h1>{{ this.$t('char_customization_modal.heading') }}</h1>
+      <div
+        class="row"
+        style="text-align: center;"
+      >
+        <h1>{{ $t('char_customization_modal.heading') }}</h1>
       </div>
       <div class="row">
         <div :class="responsiveColumnClassesHeroes">
-          <div class='body-label'>
-            <label>{{ this.$t('char_customization_modal.body') }}</label>
+          <div class="body-label">
+            <label id="body-label">{{ $t('char_customization_modal.body') }}</label>
           </div>
           <div
             class="row body-row"
+            role="radiogroup"
+            aria-labelledby="body-label"
           >
             <div
-              v-for="({ slug, silhouetteImagePath, onClick }) in bodyTypes"
-              v-bind:key="slug"
+              v-for="({ slug, silhouetteImagePath, onClick, alt }) in bodyTypes"
+              :key="slug"
               class="col-xs-4"
             >
               <div
-                @click="onClick"
+                class="hero-body-choice"
                 :class="[slug === selectedHero ? 'selectedHero' : 'unselectedHero']"
+                @click="onClick"
               >
-                <img
-                  :class="'silhouette ' + slug"
-                  :src="silhouetteImagePath"
-                />
+                <input
+                  :id="`hero-body-${slug}`"
+                  type="radio"
+                  name="hero-body"
+                  class="hero-body-radio"
+                  :aria-checked="[slug === selectedHero ? 'true' : 'false']"
+                  :aria-label="alt"
+                  @click="onClick"
+                >
+                <label
+                  :for="`hero-body-${slug}`"
+                  class="hero-body-radio-label"
+                >
+                  <img
+                    :class="'silhouette ' + slug"
+                    :src="silhouetteImagePath"
+                    :alt="alt"
+                  >
+                </label>
               </div>
             </div>
           </div>
@@ -319,16 +381,19 @@
         <div :class="responsiveColumnClassesPreview">
           <surface
             v-if="loaded && selectedHero"
-            :loadedThangTypes="loadedThangTypes"
-            :selectedThang="selectedHero"
-            :thang="selectedThang"
             :key="selectedHero + `${tintIndexSelection.skin}` + `${tintIndexSelection.hair}`"
+            :loaded-thang-types="loadedThangTypes"
+            :selected-thang="selectedHero"
+            :thang="selectedThang"
             class="character-display-area"
           />
         </div>
         <div :class="responsiveColumnClassesColors">
-          <form ref="name-form" v-on:submit.prevent="handleSubmit">
-            <label for="heroNameInput">{{ this.$t('char_customization_modal.name_label') }}</label>
+          <form
+            ref="name-form"
+            @submit.prevent="handleSubmit"
+          >
+            <label for="heroNameInput">{{ $t('char_customization_modal.name_label') }}</label>
             <input
               id="heroNameInput"
               v-model="characterName"
@@ -340,11 +405,22 @@
             >
           </form>
           <div>
-            <label>{{ this.$t('char_customization_modal.hair_label') }}</label>
+            <label>{{ $t('char_customization_modal.hair_label') }}</label>
             <div>
               <template v-for="(tint, i) in hairSwatches">
-                <div
-                  :key="i"
+                <input
+                  :id="`hair-color-${i}`"
+                  :key="`hair-color-input-${i}`"
+                  type="radio"
+                  name="hair-color"
+                  class="hair-color-radio"
+                  :aria-label="`${tintNames.hair[i]} hair color`"
+                  @click="() => onClickSwatch('hair', i)"
+                >
+                <label
+                  :key="`hair-color-label-${i}`"
+                  :for="`hair-color-${i}`"
+                  :aria-label="`${tintNames.hair[i]} hair color`"
                   :class="['swatch', tintIndexSelection.hair === i ? 'selected' : '']"
                   :style="{ backgroundColor: tint }"
                   @click="() => onClickSwatch('hair', i)"
@@ -353,11 +429,22 @@
             </div>
           </div>
           <div>
-            <label>{{ this.$t('char_customization_modal.skin_label') }}</label>
+            <label>{{ $t('char_customization_modal.skin_label') }}</label>
             <div>
               <template v-for="(tint, i) in skinSwatches">
-                <div
-                  :key="i"
+                <input
+                  :id="`skin-color-${i}`"
+                  :key="`skin-color-input-${i}`"
+                  type="radio"
+                  name="skin-color"
+                  class="skin-color-radio"
+                  :aria-label="`${tintNames.skin[i]} skin color`"
+                  @click="() => onClickSwatch('skin', i)"
+                >
+                <label
+                  :key="`skin-color-label-${i}`"
+                  :for="`skin-color-${i}`"
+                  :aria-label="`${tintNames.skin[i]} skin color`"
                   :class="['swatch', tintIndexSelection.skin === i ? 'selected' : '']"
                   :style="{ backgroundColor: tint }"
                   @click="() => onClickSwatch('skin', i)"
@@ -374,18 +461,18 @@
           <button
             v-if="showCancelButton"
 
-            @click="$emit('close')"
             class="char-button cancel-button"
+            @click="$emit('close')"
           >
-            {{ this.$t('common.cancel') }}
+            {{ $t('common.cancel') }}
           </button>
           <button
             v-if="loaded"
             :disabled="submitButtonDisabled"
-            @click="handleSubmit"
             class="char-button done-button"
+            @click="handleSubmit"
           >
-            {{ this.$t('play_level.done') }}
+            {{ $t('play_level.done') }}
           </button>
         </div>
       </div>
@@ -455,10 +542,10 @@
     margin-top: 50px
     margin-left: -30px
 
-.selectedHero > img
+.selectedHero img
   border: 4px solid #4298f5
   padding: 4px
-.unselectedHero > img
+.unselectedHero img
   padding: 8px
   opacity: 0.5
 
@@ -474,4 +561,17 @@
 
 .character-display-area
   height: 50vh
+
+.hero-body-radio
+  appearance: none
+  margin: 0
+  display: inline
+
+.hair-color-radio, .skin-color-radio
+  appearance: none
+  margin: -2px
+
+.hero-body-radio-label
+  display: block
+
 </style>

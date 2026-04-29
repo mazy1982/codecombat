@@ -5,6 +5,7 @@ CocoView = require 'views/core/CocoView'
 template = require 'app/templates/play/level/control-bar-view'
 {me} = require 'core/auth'
 utils = require 'core/utils'
+userUtils = require 'lib/user-utils'
 
 Campaign = require 'models/Campaign'
 Classroom = require 'models/Classroom'
@@ -13,6 +14,7 @@ CourseInstance = require 'models/CourseInstance'
 GameMenuModal = require 'views/play/menu/GameMenuModal'
 LevelSetupManager = require 'lib/LevelSetupManager'
 CreateAccountModal = require 'views/core/CreateAccountModal'
+AskAIHelpView = require('views/play/level/AskAIHelpView').default
 
 module.exports = class ControlBarView extends CocoView
   id: 'control-bar-view'
@@ -21,6 +23,7 @@ module.exports = class ControlBarView extends CocoView
   subscriptions:
     'level:disable-controls': 'onDisableControls'
     'level:enable-controls': 'onEnableControls'
+    'level:overallStatus-changed': 'onOverallStatusChanged'
     'ipad:memory-warning': 'onIPadMemoryWarning'
 
   events:
@@ -30,14 +33,15 @@ module.exports = class ControlBarView extends CocoView
     'click .levels-link-area': 'onClickHome'
     'click .home a': 'onClickHome'
     'click #control-bar-sign-up-button': 'onClickSignupButton'
-    'click #version-switch-button': 'onClickVersionSwitchButton'
-    'click #version-switch-button .code-language-selector': 'onClickVersionSwitchButton'
     'click [data-toggle="coco-modal"][data-target="core/CreateAccountModal"]': 'openCreateAccountModal'
+    'click .hints-button': 'onClickHintsButton'
+    'click .ai-help-button': 'onClickAIHelp'
 
   constructor: (options) ->
     @supermodel = options.supermodel
     @courseID = options.courseID
     @courseInstanceID = options.courseInstanceID
+    @parentCampaign = options.parentCampaign
 
     @worldName = options.worldName
     @session = options.session
@@ -46,6 +50,15 @@ module.exports = class ControlBarView extends CocoView
     @levelID = @levelSlug or @level.id
     @spectateGame = options.spectateGame ? false
     @observing = options.session.get('creator') isnt me.id
+    @product = @level.attributes.product
+    @lastOverallStatus = null
+    @aceConfig = options.classroomAceConfig or {}
+    @showAiBotHelp = utils.shouldShowAiBotHelp(@aceConfig)
+
+    exam = userUtils.getStorageExam()
+    if exam
+      @examLevelNumber = userUtils.levelNumberInExam(@level.get('slug'))
+      @inExam = @examLevelNumber != 0
 
     @levelNumber = ''
     if @level.isType('course', 'game-dev', 'web-dev') and @level.get('campaignIndex')?
@@ -77,11 +90,22 @@ module.exports = class ControlBarView extends CocoView
     @render()
 
   onLoaded: ->
+    if @inExam
+      @setLevelName($.i18n.t('exams.level_num', { num: @examLevelNumber }))
+
     if @classroom
-      @levelNumber = @classroom.getLevelNumber(@level.get('original'), @levelNumber)
+      @levelNumber = @classroom.getLevelNumber(@level.get('original'), @levelNumber, @courseID)
+      newClassroomItemsSetting = @classroom.get('classroomItems', true)
+      oldClassroomItemsSetting = me.lastClassroomItems()
+      me.setLastClassroomItems @classroom.get('classroomItems', true)
+      if newClassroomItemsSetting isnt oldClassroomItemsSetting and @level.isType('course')
+        # Teacher must have just changed the setting, so we need to reload the page
+        me.setLastClassroomItems newClassroomItemsSetting
+        noty text: 'Classroom items & gems setting changed; reloading', layout: 'topCenter', type: 'success', killer: false, timeout: 2000
+        _.delay (-> document.location.reload()), 2000
     else if @campaign
       @levelNumber = @campaign.getLevelNumber(@level.get('original'), @levelNumber)
-    if application.getHocCampaign() or @level.get('assessment')
+    if application.getHocCampaign()
       @levelNumber = null
     super()
 
@@ -103,9 +127,11 @@ module.exports = class ControlBarView extends CocoView
       @lastDifficulty = c.levelDifficulty
     c.spectateGame = @spectateGame
     c.observing = @observing
+    c.product = @product
+    c.lastOverallStatus = @lastOverallStatus
     @homeViewArgs = [{supermodel: if @hasReceivedMemoryWarning then null else @supermodel}]
     gameDevCampaign = application.getHocCampaign()
-    if gameDevCampaign
+    if gameDevCampaign and not @level.isLadder()
       @homeLink = "/play/#{gameDevCampaign}"
       @homeViewClass = 'views/play/CampaignView'
       @homeViewArgs.push gameDevCampaign
@@ -118,7 +144,7 @@ module.exports = class ControlBarView extends CocoView
       @homeViewClass = 'views/ladder/LadderView'
       @homeViewArgs.push levelID
       if leagueID = utils.getQueryVariable('league') or utils.getQueryVariable('course-instance')
-        leagueType = if @level.isType('course-ladder') then 'course' else 'clan'
+        leagueType = if @level.isType('course-ladder') or (@level.isType('ladder') and utils.getQueryVariable('course-instance')) then 'course' else 'clan'
         @homeViewArgs.push leagueType
         @homeViewArgs.push leagueID
         @homeLink += "/#{leagueType}/#{leagueID}"
@@ -133,10 +159,10 @@ module.exports = class ControlBarView extends CocoView
         @homeLink += "?course-instance=#{@courseInstanceID}"
 
       @homeViewClass = 'views/play/CampaignView'
-    else if @level.isType('hero', 'hero-coop', 'game-dev', 'web-dev') or window.serverConfig.picoCTF
+    else if @level.isType('hero', 'hero-coop', 'game-dev', 'web-dev')
       @homeLink = '/play'
       @homeViewClass = 'views/play/CampaignView'
-      campaign = @level.get 'campaign'
+      campaign = @parentCampaign or @level.get 'campaign'
       @homeLink += '/' + campaign
       @homeViewArgs.push campaign
     else
@@ -147,11 +173,12 @@ module.exports = class ControlBarView extends CocoView
     c
 
   showGameMenuModal: (e, tab=null) ->
-    gameMenuModal = new GameMenuModal level: @level, session: @session, supermodel: @supermodel, showTab: tab
+    Backbone.Mediator.publish 'tome:game-menu-opened', {}
+    gameMenuModal = new GameMenuModal {@level, @session, @supermodel, showTab: tab, classroomAceConfig: @options.classroomAceConfig, hintsState: @options.hintsState, teacherID: @options.teacherID, @team, @courseID, @courseInstanceID}
     @openModalView gameMenuModal
     @listenToOnce gameMenuModal, 'change-hero', ->
       @setupManager?.destroy()
-      @setupManager = new LevelSetupManager({supermodel: @supermodel, level: @level, levelID: @levelID, parent: @, session: @session, courseID: @courseID, courseInstanceID: @courseInstanceID})
+      @setupManager = new LevelSetupManager({@supermodel, @level, @levelID, parent: @, @session, @courseID, @courseInstanceID, classroom: @classroom})
       @setupManager.open()
 
   onClickHome: (e) ->
@@ -165,13 +192,23 @@ module.exports = class ControlBarView extends CocoView
   onClickSignupButton: (e) ->
     window.tracker?.trackEvent 'Started Signup', category: 'Play Level', label: 'Control Bar', level: @levelID
 
-  onClickVersionSwitchButton: (e) ->
-    return if @destroyed
-    otherVersionLink = "/play/level/#{@level.get('slug')}?dev=true"
-    otherVersionLink += '&course=560f1a9f22961295f9427742' if not @course
-    otherVersionLink += "&codeLanguage=#{codeLanguage}" if codeLanguage = $(e.target).data('code-language')
-    #Backbone.Mediator.publish 'router:navigate', route: otherVersionLink, viewClass: 'views/play/level/PlayLevelView', viewArgs: [{supermodel: @supermodel}, @level.get('slug')]  # TODO: why doesn't this work?
-    document.location.href = otherVersionLink  # Loses all loaded resources :(
+  onClickHintsButton: ->
+    return unless @options.hintsState?
+    Backbone.Mediator.publish 'level:hints-button', {state: @options.hintsState.get('hidden')}
+    @options.hintsState.set('hidden', not @options.hintsState.get('hidden'))
+    window.tracker?.trackEvent 'Hints Clicked', category: 'Students', levelSlug: @levelSlug, hintCount: @options.hintsState.get('hints')?.length ? 0
+
+  onClickAIHelp: ->
+    @openModalView(new AskAIHelpView({
+      propsData: {
+        aiChatKind: @level.get('aiChatKind')
+      }
+    }))
+
+  onOverallStatusChanged: (e) ->
+    return if e?.overallStatus == @lastOverallStatus 
+    @lastOverallStatus = e.overallStatus
+    @render()
 
   onDisableControls: (e) -> @toggleControls e, false
   onEnableControls: (e) -> @toggleControls e, true

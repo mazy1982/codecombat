@@ -1,30 +1,34 @@
-
 <script>
-  export default {
-    props: {
-      iconName: {
-        type: String,
-        required: true,
-        default: ''
-      },
-      text: {
-        type: String,
-        required: true,
-        default: ''
-      },
-      inactive: {
-        type: Boolean,
-        default: false
-      }
+export default {
+  props: {
+    iconName: {
+      type: String,
+      required: false,
+      default: ''
     },
-    methods: {
-      onClick () {
-        if (!this.inactive) {
-          this.$emit('click')
-        }
+    text: {
+      type: String,
+      required: true,
+      default: ''
+    },
+    inactive: {
+      type: Boolean,
+      default: false
+    },
+    spinning: {
+      type: Boolean,
+      default: false,
+      required: false
+    }
+  },
+  methods: {
+    onClick () {
+      if (!this.inactive) {
+        this.$emit('click')
       }
     }
   }
+}
 </script>
 
 <template>
@@ -34,7 +38,11 @@
     :disabled="inactive"
     @click="onClick"
   >
-    <img :src="'/images/ozaria/teachers/dashboard/svg_icons/'+iconName+'.svg'">
+    <img
+      v-if="iconName"
+      :class="{spinning}"
+      :src="'/images/ozaria/teachers/dashboard/svg_icons/' + iconName + '.svg'"
+    >
     <span> {{ text }} </span>
   </div>
 </template>
@@ -56,7 +64,7 @@
   }
 
   span {
-    @include font-p-3-small-button-text-dusk-dark;
+    @include font-p-3-small-button-text-purple;
     font-size: 12px;
     font-weight: 500;
     line-height: 12px;
@@ -66,9 +74,24 @@
 
   &.disabled {
     cursor: default;
+
     span {
       color: #ADADAD;
     }
   }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
 }
 </style>

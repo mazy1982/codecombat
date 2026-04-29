@@ -1,84 +1,171 @@
 <script>
-  import { mapActions } from 'vuex'
-  import PrimaryButton from '../common/buttons/PrimaryButton'
-  import SecondaryButton from '../common/buttons/SecondaryButton'
-  import { tryCopy } from 'ozaria/site/common/ozariaUtils'
+import { mapActions } from 'vuex'
+import PrimaryButton from '../common/buttons/PrimaryButton'
+import SecondaryButton from '../common/buttons/SecondaryButton'
+import TertiaryButton from '../common/buttons/TertiaryButton'
+import { tryCopy } from 'ozaria/site/common/ozariaUtils'
+import filesApi from 'app/core/api/files'
+import backgroundJobApi from 'app/core/api/background-job'
 
-  import ButtonGoogleClassroom from './common/ButtonGoogleClassroom'
-  import ModalDivider from '../../common/ModalDivider'
+import ButtonGoogleClassroom from './common/ButtonGoogleClassroom'
+import ModalDivider from '../../common/ModalDivider'
+import ModalCreateStudents from './ModalCreateStudents'
 
-  export default Vue.extend({
-    components: {
-      PrimaryButton,
-      SecondaryButton,
-      ButtonGoogleClassroom,
-      ModalDivider
+require('core/services/filepicker')({
+  accept: 'text/csv',
+})
+
+export default Vue.extend({
+  components: {
+    PrimaryButton,
+    SecondaryButton,
+    ButtonGoogleClassroom,
+    ModalDivider,
+    ModalCreateStudents,
+    TertiaryButton,
+  },
+  props: {
+    classroomCode: {
+      type: String,
+      default: '',
+      required: true,
     },
-    data: () => ({
-      regenerationInProgress: false,
+    googleSyncInProgress: {
+      type: Boolean,
+      default: false,
+    },
+    classroom: {
+      type: Object,
+      required: true,
+    },
+    showGoogleClassroom: {
+      type: Boolean,
+      default: false,
+    },
+    from: {
+      type: String,
+      default: null,
+    },
+    createStudents: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  data: () => ({
+    regenerationInProgress: false,
+    jobInfo: '',
+    errorMsg: '',
+  }),
+  computed: {
+    classroomUrl () {
+      return `${document.location.origin}/students?_cc=${this.classroomCode}`
+    },
+    classCodeDescription () {
+      return `${i18n.t('teachers.class_code_desc')} ${document.location.hostname}`
+    },
+  },
+  methods: {
+    ...mapActions({
+      updateClassroom: 'classrooms/updateClassroom',
     }),
-    props: {
-      classroomCode: {
-        type: String,
-        default: '',
-        required: true
-      },
-      googleSyncInProgress: {
-        type: Boolean,
-        default: false
-      },
-      classroom: {
-        type: Object,
-        required: true
-      },
-      showGoogleClassroom: {
-        type: Boolean,
-        default: false
-      },
-      from: {
-        type: String,
-        default: null
+    copyCode () {
+      this.$refs.classCode.select()
+      tryCopy()
+      window.tracker?.trackEvent('Add Students: Copy Class Code Clicked', { category: 'Teachers', label: this.from })
+    },
+    copyUrl () {
+      this.$refs.classUrl.select()
+      tryCopy()
+      window.tracker?.trackEvent('Add Students: Copy Class URL Clicked', { category: 'Teachers', label: this.from })
+    },
+    clickInviteButton () {
+      window.tracker?.trackEvent('Add Students: Invite By Email Clicked', { category: 'Teachers', label: this.from })
+      this.$emit('inviteStudents')
+    },
+    async rosterViaCsv () {
+      this.jobInfo = this.$t('common.processing')
+      this.errorMsg = ''
+      try {
+        const { filename, metadata } = await this.uploadCsv()
+        const classroomId = this.classroom._id
+        const job = await backgroundJobApi.create('csv-roster', { filename, metadata, classroomId })
+        await this.pollJob(job?.job)
+        if (!this.errorMsg) {
+          this.jobInfo = this.$t('teachers.roster_completed')
+        }
+      } catch (e) {
+        console.log('error', e)
+        this.jobInfo = ''
+        this.errorMsg = e?.message || this.$t('loading_error.unknown')
       }
     },
-    computed: {
-      classroomUrl () {
-        return `${document.location.origin}/students?_cc=${this.classroomCode}`
-      },
+    uploadCsv () {
+      return new Promise((resolve, reject) => {
+        window.filepicker.pick({ mimetypes: ['text/csv'] }, async (InkBlob) => {
+          try {
+            const userId = me?.id || me?._id || 'unknown-user'
+            const filename = `${Date.now()}-${InkBlob.filename}`
+            const resp = await filesApi.saveFile({ ...InkBlob, path: `csv-roster/${userId}`, force: 'true', filename })
+            return resolve(resp)
+          } catch (err) {
+            return reject(err)
+          }
+        })
+      })
     },
-    methods: {
-      ...mapActions({
-        updateClassroom: 'classrooms/updateClassroom',
-      }),
-      copyCode () {
-        this.$refs['classCode'].select()
-        tryCopy()
-        window.tracker?.trackEvent('Add Students: Copy Class Code Clicked', { category: 'Teachers', label: this.from })
-      },
-      copyUrl () {
-        this.$refs['classUrl'].select()
-        tryCopy()
-        window.tracker?.trackEvent('Add Students: Copy Class URL Clicked', { category: 'Teachers', label: this.from })
-      },
-      clickInviteButton () {
-        window.tracker?.trackEvent('Add Students: Invite By Email Clicked', { category: 'Teachers', label: this.from })
-        this.$emit('inviteStudents')
-      },
-      async regenerateClassCode () {
-        this.regenerationInProgress = true;
-        window.tracker?.trackEvent('Add Students: Request New Class Code Clicked', { category: 'Teachers', label: this.from })
-        try {
-          await this.updateClassroom({ classroom:this.classroom, updates: { codeCamel: '', code: '' } });
-        } catch(err) {
-          noty({
-            text: `Error occurred: ${err}`,
-            type: 'error',
-            timeout: 5000
-          })
+    async pollJob (jobId) {
+      const sleep = async function (ms) {
+        return new Promise(resolve => setTimeout(resolve, ms))
+      }
+      let poll = true
+      this.errorMsg = ''
+      let attempts = 0
+      while (poll) {
+        const job = await backgroundJobApi.get(jobId)
+        attempts++
+        if (job.message) {
+          this.jobInfo = job.message
         }
-        this.regenerationInProgress = false;
-      },
-    }
-  })
+        if (job.status === 'failed') {
+          this.jobInfo = ''
+          this.errorMsg = job.message
+          poll = false
+        } else if (job.status === 'completed') {
+          poll = false
+        }
+        const MAX_DOTS = 30
+        if (attempts % 3 === 0 && attempts < MAX_DOTS) {
+          this.jobInfo = this.jobInfo + '.'
+        }
+        await sleep(3000)
+      }
+    },
+    downloadExampleCsv () {
+      const csvContent = 'email,firstName,lastName\njane.doe@example.com,Jane,Doe\njohn.smith@example.com,John,Smith\nalex.jones@example.com,Alex,Jones\n'
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'example-roster.csv'
+      link.click()
+      URL.revokeObjectURL(url)
+    },
+    async regenerateClassCode () {
+      this.regenerationInProgress = true
+      window.tracker?.trackEvent('Add Students: Request New Class Code Clicked', { category: 'Teachers', label: this.from })
+      try {
+        await this.updateClassroom({ classroom: this.classroom, updates: { codeCamel: '', code: '' } })
+      } catch (err) {
+        noty({
+          text: $.i18n.t('teacher_dashboard.error_occurred', { err }),
+          type: 'error',
+          timeout: 5000,
+        })
+      }
+      this.regenerationInProgress = false
+    },
+  },
+})
 </script>
 
 <template>
@@ -113,11 +200,11 @@
           >
         </div>
       </div>
-      <span class="sub-text"> {{ $t("teachers.class_code_desc") }} </span>
+      <span class="sub-text"> {{ classCodeDescription }} </span>
       <primary-button
-          :inactive="regenerationInProgress"
-          class="regenerate-code-button"
-          @click="regenerateClassCode"
+        :inactive="regenerationInProgress"
+        class="regenerate-code-button"
+        @click="regenerateClassCode"
       >
         {{ $t("teachers.regenerate_class_code") }}
       </primary-button>
@@ -139,12 +226,57 @@
         </div>
       </div>
       <span class="sub-text"> {{ $t("teachers.class_url_desc") }} </span>
-      <primary-button
-        class="invite-button"
+      <hr>
+      <div class="roster-container">
+        <tertiary-button
+          class="cta-button roster-button"
+          @click="rosterViaCsv"
+        >
+          {{ $t("teachers.roster_via_csv") }}
+        </tertiary-button>
+        <p class="sub-text">
+          *{{ $t("teachers.roster_sub_text") }}
+        </p>
+        <p class="sub-text">
+          *{{ $t("teachers.roster_sub_text_2") }}
+        </p>
+        <p class="sub-text">
+          *{{ $t("teachers.roster_sub_text_3") }}
+        </p>
+        <a
+          class="download-example-csv"
+          href="#"
+          @click.prevent="downloadExampleCsv"
+        >{{ $t("teachers.roster_download_example") }}</a>
+        <p
+          v-if="jobInfo"
+          class="sub-text bold"
+        >
+          {{ jobInfo }}
+        </p>
+        <p
+          v-if="errorMsg"
+          class="sub-text error"
+        >
+          {{ errorMsg }}
+        </p>
+      </div>
+      <tertiary-button
+        class="cta-button invite-button"
         @click="clickInviteButton"
       >
         {{ $t("teachers.invite_by_email") }}
-      </primary-button>
+      </tertiary-button>
+      <div
+        v-if="createStudents"
+        class="create-students"
+      >
+        <modal-create-students
+          :classroom="classroom"
+          from="ModalAddStudents"
+          @done="$emit('close')"
+        />
+      </div>
     </div>
     <secondary-button
       class="done-button"
@@ -165,7 +297,7 @@
   align-items: center;
 }
 .form-container {
-  margin-bottom: 170px;
+  margin-bottom: 50px;
 }
 
 .google-classroom-div {
@@ -205,7 +337,7 @@
 .sub-text {
   @include font-p-4-paragraph-smallest-gray;
 }
-.invite-button {
+.cta-button {
   display: block;
   width: 190px;
   height: 35px;
@@ -213,12 +345,33 @@
 }
 
 .regenerate-code-button {
-  @extend .invite-button;
+  @extend .cta-button;
 }
 
 .done-button {
   width: 150px;
   height: 35px;
   align-self: flex-end;
+}
+.error {
+  color: red;
+  font-weight: bold;
+}
+.roster-container {
+  .sub-text {
+    margin-top: 5px;
+    margin-bottom: 5px;
+  }
+  .download-example-csv {
+    @include font-p-4-paragraph-smallest-gray;
+    display: inline-block;
+    margin-top: 5px;
+    color: $color-secondary-button-dusk;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}
+.bold {
+  font-weight: bold;
 }
 </style>

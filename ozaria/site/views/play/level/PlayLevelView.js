@@ -20,8 +20,6 @@ const RootView = require('views/core/RootView')
 const template = require('ozaria/site/templates/play/play-level-view.pug')
 const { me } = require('core/auth')
 const ThangType = require('models/ThangType')
-const Classroom = require('models/Classroom')
-const CourseInstance = require('models/CourseInstance')
 const utils = require('core/utils')
 const storage = require('core/storage')
 
@@ -40,7 +38,8 @@ const createjs = require('lib/createjs-parts')
 const LevelLoadingView = require('app/views/play/level/LevelLoadingView')
 const ProblemAlertView = require('./tome/ProblemAlertView')
 const TomeView = require('./tome/TomeView')
-const LevelDialogueView = require('./LevelDialogueView')
+const ChatView = require('app/views/play/level/LevelChatView')
+// const HUDView = require('app/views/play/level/LevelHUDView')
 const ControlBarView = require('./ControlBarView')
 const LevelPlaybackView = require('./LevelPlaybackView')
 const CapstonePlaybackView = require('./CapstonePlaybackView.vue').default
@@ -59,9 +58,11 @@ const SurfaceContextMenuView = require('./SurfaceContextMenuView')
 const WebSurfaceView = require('./WebSurfaceView')
 const SpellPaletteView = require('./tome/SpellPaletteView')
 const store = require('core/store')
-const GameMenuModal = require('ozaria/site/views/play/menu/GameMenuModal')
+const GameMenuModal = require('views/play/menu/GameMenuModal')
 const TutorialPlayView = require('./TutorialPlayView').default
 const ThangTypeHUDComponent = require('./ThangTypeHUDComponent').default
+const ScreenReaderSurfaceView = require('app/views/play/level/ScreenReaderSurfaceView')
+const AskAIHelpView = require('views/play/level/AskAIHelpView').default
 
 require('lib/game-libraries')
 window.Box2D = require('exports-loader?Box2D!vendor/scripts/Box2dWeb-2.1.a.3')
@@ -85,6 +86,7 @@ class PlayLevelView extends RootView {
 
     this.courseID = options.courseID || utils.getQueryVariable('course')
     this.courseInstanceID = options.courseInstanceID || utils.getQueryVariable('course-instance')
+    this.classroomId = options.classroomId || utils.getQueryVariable('classroom')
     this.isEditorPreview = utils.getQueryVariable('dev')
     this.sessionID = utils.getQueryVariable('session') || this.options.sessionID
     this.observing = utils.getQueryVariable('observing')
@@ -171,18 +173,34 @@ class PlayLevelView extends RootView {
       team: utils.getQueryVariable('team'),
       observing: this.observing,
       courseID: this.courseID,
-      courseInstanceID: this.courseInstanceID
+      courseInstanceID: this.courseInstanceID,
+      classroomId: this.classroomId
     }
     if (me.isSessionless()) {
       levelLoaderOptions.fakeSessionConfig = {}
     }
-    console.debug('PlayLevelView: Create LevelLoader')
     this.levelLoader = new LevelLoader(levelLoaderOptions)
     this.listenToOnce(
       this.levelLoader,
       'world-necessities-loaded',
       this.onWorldNecessitiesLoaded
     )
+    this.classroomAceConfig = { liveCompletion: true, disablePaste: false } // default (home users, teachers, etc.)
+    if (this.courseInstanceID) {
+      const fetchAceConfig = $.get(`/db/course_instance/${this.courseInstanceID}/classroom?project=aceConfig,members`)
+      this.supermodel.trackRequest(fetchAceConfig)
+      fetchAceConfig.then(classroom => {
+        this.classroomAceConfig.liveCompletion = classroom.aceConfig?.liveCompletion != null ? classroom.aceConfig.liveCompletion : true
+        this.classroomAceConfig.disablePaste = classroom.aceConfig?.disablePaste
+        const levelChat = classroom.aceConfig?.levelChat || 'none'
+        this.classroomAceConfig.levelChat = levelChat
+        store.commit('game/setAIHintVisible', levelChat !== 'none')
+      })
+    }
+    if (me.isTeacher()) {
+      store.commit('game/setAIHintVisible', true)
+    }
+
     return this.listenTo(
       this.levelLoader,
       'world-necessity-load-failed',
@@ -294,9 +312,6 @@ class PlayLevelView extends RootView {
     ) // May not have @level loaded yet
     this.$el.find('#level-done-button').hide()
     $('body').addClass('is-playing')
-    if (me.get('aceConfig') && me.get('aceConfig').screenReaderMode) {
-      $('body').addClass('screen-reader-mode')  // TODO: keep this updated
-    };
   }
 
   afterInsert () {
@@ -306,10 +321,15 @@ class PlayLevelView extends RootView {
   // Partially Loaded Setup ####################################################
 
   onWorldNecessitiesLoaded () {
-    console.debug('PlayLevelView: world necessities loaded')
     // Called when we have enough to build the world, but not everything is loaded
     store.dispatch('game/resetTutorial')
     this.grabLevelLoaderData()
+
+    const levelName = utils.i18n(this.level.attributes, 'displayName') || utils.i18n(this.level.attributes, 'name')
+    this.setMeta({
+      title: $.i18n.t('play.level_title_ozaria', { level: levelName, interpolation: { escapeValue: false } })
+    })
+
     const randomTeam = this.world && this.world.teamForPlayer() // If no team is set, then we will want to equally distribute players to teams
     const team = utils.getQueryVariable('team') || this.session.get('team') || randomTeam || 'humans'
     this.loadOpponentTeam(team)
@@ -466,7 +486,7 @@ class PlayLevelView extends RootView {
   loadOpponentTeam (myTeam) {
     let opponentSpells = []
     const object = this.session.get('teamSpells') || (this.otherSession && this.otherSession.get('teamSpells')) || {}
-    for (let spellTeam in object) {
+    for (const spellTeam in object) {
       const spells = object[spellTeam]
       if (spellTeam === myTeam || !myTeam) {
         continue
@@ -581,11 +601,8 @@ class PlayLevelView extends RootView {
     ) {
       return
     }
-    const useHero =
-      /hero/.test(spell.getSource()) ||
-      !/(self[\.\:]|this\.|\@)/.test(spell.getSource())
-    if (this.spellPaletteView) {
-      this.removeSubview(this.spellPaletteView)
+    if (this.spellPaletteView && !this.spellPaletteView.destroyed) {
+      this.removeSubView(this.spellPaletteView)
     }
     this.spellPaletteView = this.insertSubView(
       new SpellPaletteView({
@@ -601,8 +618,7 @@ class PlayLevelView extends RootView {
         session: this.session,
         level: this.level,
         courseID: this.courseID,
-        courseInstanceID: this.courseInstanceID,
-        useHero
+        courseInstanceID: this.courseInstanceID
       })
     )
   }
@@ -627,7 +643,8 @@ class PlayLevelView extends RootView {
       courseID: this.courseID,
       courseInstanceID: this.courseInstanceID,
       god: this.god,
-      capstoneStage: this.capstoneStage
+      capstoneStage: this.capstoneStage,
+      classroomAceConfig: this.classroomAceConfig
     })
     this.insertSubView(this.tome)
 
@@ -643,6 +660,9 @@ class PlayLevelView extends RootView {
     }
     this.insertSubView(
       new GoalsView({ level: this.level, session: this.session })
+    )
+    this.insertSubView(
+      new ChatView({ levelID: this.levelID, sessionID: this.session.id, session: this.session, aceConfig: this.classroomAceConfig, levelRealID: this.level.id }),
     )
     if (this.$el.hasClass('flags')) {
       this.insertSubView(
@@ -678,7 +698,8 @@ class PlayLevelView extends RootView {
       new ProblemAlertView({
         session: this.session,
         level: this.level,
-        supermodel: this.supermodel
+        supermodel: this.supermodel,
+        aceConfig: this.classroomAceConfig
       })
     )
     this.insertSubView(
@@ -715,6 +736,8 @@ class PlayLevelView extends RootView {
       })
       this.insertSubView(this.webSurface)
     }
+
+    this.insertSubView(new ScreenReaderSurfaceView())
   }
 
   initVolume () {
@@ -747,61 +770,15 @@ class PlayLevelView extends RootView {
   // Load Completed Setup ######################################################
 
   onSessionLoaded (e) {
-    let left1
-    console.log('PlayLevelView: loaded session', e.session)
     store.commit('game/setTimesCodeRun', e.session.get('timesCodeRun') || 0)
     store.commit(
       'game/setTimesAutocompleteUsed',
       e.session.get('timesAutocompleteUsed') || 0
     )
-    if (this.session) {
-      return
-    }
-    // Just the level and session have been loaded by the level loader
-    if (
-      e.level.isType('hero', 'hero-ladder', 'hero-coop') &&
-      !_.size(
-        (left1 = __guard__(e.session.get('heroConfig'), x => x.inventory)) !=
-          null
-          ? left1
-          : {}
-      ) &&
-      e.level.get('assessment') !== 'open-ended'
-    ) {
-      // Delaying this check briefly so LevelLoader.loadDependenciesForSession has a chance to set the heroConfig on the level session
-      return _.defer(() => {
-        let left2
-        if (
-          _.size(
-            (left2 = __guard__(
-              e.session.get('heroConfig'),
-              x1 => x1.inventory
-            )) != null
-              ? left2
-              : {}
-          )
-        ) {
-          return
-        }
-        // TODO: which scenario is this executed for?
-        if (this.setupManager != null) {
-          this.setupManager.destroy()
-        }
-        this.setupManager = new LevelSetupManager({
-          supermodel: this.supermodel,
-          level: e.level,
-          levelID: this.levelID,
-          parent: this,
-          session: e.session,
-          courseID: this.courseID,
-          courseInstanceID: this.courseInstanceID
-        })
-        return this.setupManager.open()
-      })
-    }
   }
 
   onLoaded () {
+    $('.cc-revoke:visible, .cc-window:visible').addClass('play-level-temp-hidden').hide()
     return _.defer(() => this.onLevelLoaderLoaded())
   }
 
@@ -891,7 +868,7 @@ class PlayLevelView extends RootView {
       return {}
     }
     const playerNames = {}
-    for (let session of [this.session, this.otherSession]) {
+    for (const session of [this.session, this.otherSession]) {
       if (session != null ? session.get('team') : undefined) {
         playerNames[session.get('team')] =
           session.get('creatorName') || 'Anonymous'
@@ -906,7 +883,6 @@ class PlayLevelView extends RootView {
     if (this.surface == null && this.webSurface == null) {
       return
     }
-    console.log('PlayLevelView: level started')
     this.loadingView.showReady()
     this.trackLevelLoadEnd()
     if (
@@ -1055,7 +1031,7 @@ class PlayLevelView extends RootView {
     const isReload = Boolean(this.world)
     if (isReload) {
       // Make sure to share any models we loaded that the parent didn't, like hero equipment, in case the parent reloaded
-      for (let url in this.supermodel.models) {
+      for (const url in this.supermodel.models) {
         const model = this.supermodel.models[url]
         if (!e.supermodel.models[url]) {
           e.supermodel.registerModel(model)
@@ -1072,10 +1048,10 @@ class PlayLevelView extends RootView {
 
   onLevelReloadThangType (e) {
     const tt = e.thangType
-    for (let url in this.supermodel.models) {
+    for (const url in this.supermodel.models) {
       const model = this.supermodel.models[url]
       if (model.id === tt.id) {
-        for (let key in tt.attributes) {
+        for (const key in tt.attributes) {
           const val = tt.attributes[key]
           model.attributes[key] = val
         }
@@ -1090,7 +1066,7 @@ class PlayLevelView extends RootView {
   }
 
   onOpenOptionsModal (e) {
-    this.openModalView(new GameMenuModal({ level: this.level, session: this.session, supermodel: this.supermodel }))
+    this.openModalView(new GameMenuModal({ level: this.level, session: this.session, supermodel: this.supermodel, classroomAceConfig: this.classroomAceConfig }))
   }
 
   onWindowResize (e) {
@@ -1236,7 +1212,7 @@ class PlayLevelView extends RootView {
       }
     }
 
-    let ModalClass = OzariaTransitionModal
+    const ModalClass = OzariaTransitionModal
     if (this.level.isType('course-ladder')) {
       options.courseInstanceID =
         utils.getQueryVariable('course-instance') ||
@@ -1258,7 +1234,7 @@ class PlayLevelView extends RootView {
   onRestartLevel () {
     this.tome.reloadAllCode()
     if (me.isAdmin() && this.level.get('ozariaType') === 'capstone') {
-      const shouldResetCapstone = window.confirm('Do you want to restart capstone stage progress to 1?')
+      const shouldResetCapstone = window.confirm($.i18n.t('play_level.restart_capstone_stage'))
       if (shouldResetCapstone) {
         const code = this.session.get('code') || {}
         if (code['saved-capstone-normal-code']) {
@@ -1296,7 +1272,7 @@ class PlayLevelView extends RootView {
       return
     }
     this.openModalView(
-      new InfiniteLoopModal({ nonUserCodeProblem: e.nonUserCodeProblem, isCapstone: this.level.isCapstone() || false })
+      new InfiniteLoopModal({ nonUserCodeProblem: e.nonUserCodeProblem, isCapstone: this.level.isCapstone() || false, problem: e.problem, timedOut: e.timedOut })
     )
     if (!this.observing) {
       trackEvent('Saw Initial Infinite Loop', {
@@ -1414,10 +1390,10 @@ class PlayLevelView extends RootView {
     } else {
       this.lastWorldFramesLoaded = this.world.frames.length
     }
-    for (var [spriteName, message] of Array.from(
+    for (const [spriteName, message] of Array.from(
       this.world.thangDialogueSounds(startFrame)
     )) {
-      var sound, thangType
+      let sound, thangType
       if (
         !(thangType = _.find(thangTypes, m => m.get('name') === spriteName))
       ) {
@@ -1650,6 +1626,7 @@ class PlayLevelView extends RootView {
     }
     Backbone.Mediator.unsubscribe('modal:closed', this.onLevelStarted, this)
     Backbone.Mediator.unsubscribe('audio-player:loaded', this.playAmbientSound, this)
+    $('.cc-revoke.play-level-temp-hidden, .cc-window.play-level-temp-hidden').show().removeClass('play-level-temp-hidden')
     return super.destroy()
   }
 
@@ -1685,6 +1662,14 @@ class PlayLevelView extends RootView {
     return store.commit('game/incrementTimesCodeRun')
   }
 
+  onCloseSolution () {
+    window.Backbone.Mediator.publish('level:close-solution', {})
+  }
+
+  onClickAIHint () {
+    this.openModalView(new AskAIHelpView({}))
+  }
+
   onSpellChanged () {
     // This is triggered at very confusing times - for example when a capstone game is about to begin. At that
     // time, the code has not actually changed, but it is being built.
@@ -1716,7 +1701,6 @@ class PlayLevelView extends RootView {
       window.history.pushState(null, null, url)
     }
 
-
     store.dispatch('game/resetTutorial', {
       keepIntro: true
     })
@@ -1724,7 +1708,7 @@ class PlayLevelView extends RootView {
     this.goalManager.destroy()
     this.initGoalManager()
     this.tome.softReloadCapstoneStage(this.capstoneStage)
-    Backbone.Mediator.publish('tome:updateAether')
+    Backbone.Mediator.publish('tome:update-aether', {})
 
     this.loadScriptsForCapstoneStage(this.world.scripts, this.capstoneStage)
     store.dispatch('game/setTutorialActive', true)
@@ -1788,8 +1772,9 @@ PlayLevelView.prototype.subscriptions = {
   'store:item-purchased': 'onItemPurchased',
   'tome:manual-cast': 'onRunCode',
   'tome:spell-changed': 'onSpellChanged',
-  'tome:updateAetherRunning': 'updateAetherRunning',
-  'world:update-key-value-db': 'updateKeyValueDb'
+  'tome:update-aether-running': 'updateAetherRunning',
+  'world:update-key-value-db': 'updateKeyValueDb',
+  'level:click-ai-hint': 'onClickAIHint'
 }
 
 PlayLevelView.prototype.events = {
@@ -1800,12 +1785,10 @@ PlayLevelView.prototype.events = {
   'click #stop-cinematic-playback-button' () {
     return Backbone.Mediator.publish('playback:stop-cinematic-playback', {})
   },
-  'click #fullscreen-editor-background-screen' (e) {
-    return Backbone.Mediator.publish('tome:toggle-maximize', {})
-  },
   'click .contact-link': 'onContactClicked',
   'contextmenu #webgl-surface': 'onSurfaceContextMenu',
-  click: 'onClick'
+  click: 'onClick',
+  'click .close-solution-btn': 'onCloseSolution'
 }
 
 PlayLevelView.prototype.shortcuts = {

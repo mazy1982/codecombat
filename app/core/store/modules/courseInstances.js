@@ -3,6 +3,7 @@ import courseInstancesApi from 'core/api/course-instances'
 const CourseInstance = require('models/CourseInstance')
 const User = require('models/User')
 const Prepaid = require('models/Prepaid')
+const utils = require('core/utils')
 
 export default {
   namespaced: true,
@@ -26,6 +27,9 @@ export default {
     },
     getCourseInstancesOfClass: (state) => (classroomId) => {
       return state.courseInstanceByClassroom[classroomId]
+    },
+    getCourseInstanceById: (state) => (id) => {
+      return state.courseInstanceById[id]
     }
   },
 
@@ -72,7 +76,7 @@ export default {
 
       return courseInstancesApi
         .fetchByOwner(teacherId)
-        .then(res =>  {
+        .then(res => {
           if (res) {
             commit('setCourseInstancesForTeacher', {
               teacherId,
@@ -86,10 +90,30 @@ export default {
         .finally(() => commit('toggleTeacherLoading', teacherId))
     },
 
+    updateCourseInstance: async ({ commit, state }, { courseInstance, updates }) => {
+      const response = await courseInstancesApi.update({ courseInstanceID: courseInstance._id, updates })
+      if (response) {
+        commit('setCourseInstanceForId', {
+          id: courseInstance._id,
+          instance: response
+        })
+        const classroomId = response.classroomID
+        Vue.set(state.courseInstanceByClassroom, classroomId, state.courseInstanceByClassroom[classroomId].map(ci => {
+          if (ci._id === courseInstance._id) {
+            return response
+          }
+          return ci
+        }))
+
+      } else {
+        throw new Error('Unexpected response from course instances update API.')
+      }
+    },
+
     fetchCourseInstancesForClassroom: ({ commit }, classroomId) => {
       return courseInstancesApi
         .fetchByClassroom(classroomId)
-        .then(res =>  {
+        .then(res => {
           if (res) {
             commit('setCourseInstancesForClassroom', {
               classroomId,
@@ -102,23 +126,22 @@ export default {
         .catch((e) => noty({ text: 'Failed to fetch course instances: ' + e, type: 'error', layout: 'topCenter', timeout: 5000 }))
     },
 
-    fetchCourseInstancesForId: ({ commit }, id) => {
+    fetchCourseInstanceForId: async ({ commit, getters }, id) => {
+      if (getters.getCourseInstanceById(id)) {
+        return
+      }
       commit('toggleIdLoading', id)
 
-      return courseInstancesApi
-        .get(id)
-        .then(res => {
-          if (res) {
-            commit('setCourseInstancesForId', {
-              id,
-              instance: res
-            })
-          } else {
-            throw new Error('Unexpected response from course instances by id API.')
-          }
+      const res = await courseInstancesApi.get({ courseInstanceID: id })
+      if (res) {
+        commit('setCourseInstanceForId', {
+          id,
+          instance: res
         })
-      .catch((e) => noty({ text: 'Fetch course instances failure: ' + e, type: 'error', layout: 'topCenter', timeout: 2000 }))
-      .finally(() => commit('toggleIdLoading', id))
+      } else {
+        throw new Error('Unexpected response from course instances by id API.')
+      }
+      commit('toggleIdLoading', id)
     },
 
     async assignCourse ({ rootGetters, state }, { course, members, classroom, sharedClassroomId }) {
@@ -130,7 +153,7 @@ export default {
           courseID: course._id,
           classroomID: classroom._id,
           ownerID: classroom.ownerID,
-          aceConfig: {}
+          aceConfig: {},
         })
         courseInstance.notyErrors = false
 
@@ -146,10 +169,16 @@ export default {
       const unenrolledStudents = students
         .filter(user => !user.isEnrolled() || !user.prepaidIncludesCourse(course._id))
 
-      const totalSpotsAvailable = availablePrepaids.reduce((acc, prepaid) => acc + prepaid.openSpots(), 0)
+      const totalSpotsAvailable = availablePrepaids.reduce((acc, prepaid) => {
+        if (prepaid.includesCourse(course._id)) {
+          return acc + prepaid.openSpots()
+        } else {
+          return acc
+        }
+      }, 0)
       const canAssignCourses = totalSpotsAvailable >= unenrolledStudents.length
 
-      if (!canAssignCourses) {
+      if (!course.free && !canAssignCourses) {
         const additionalLicensesNum = unenrolledStudents.length - totalSpotsAvailable
         noty({
           text: `Oops! It looks like you need ${additionalLicensesNum} more license${additionalLicensesNum > 1 ? 's' : ''} to access the remaining chapters. Visit My Licenses to learn more!`,
@@ -162,14 +191,19 @@ export default {
       }
 
       const numberEnrolled = unenrolledStudents.length
-      if (numberEnrolled) {
+      const courseName = utils.i18n(course, 'name')
+      if (numberEnrolled && !course.free) {
         let confirmed = false
         await new Promise((resolve) => noty({
-          text: `Please confirm that you'd like to assign ${course.name} to ${members.length} student(s). ${numberEnrolled} license(s) will be applied.`,
+          text: $.i18n.t('teachers.assign_course_confirm', {
+            numStudents: members.length,
+            courseName,
+            numberEnrolled,
+          }),
           buttons: [
             {
               addClass: 'btn btn-primary',
-              text: 'Ok',
+              text: $.i18n.t('modal.okay'),
               onClick: function ($noty) {
                 confirmed = true
                 $noty.close()
@@ -178,7 +212,7 @@ export default {
             },
             {
               addClass: 'btn btn-danger',
-              text: 'Cancel',
+              text: $.i18n.t('modal.cancel'),
               onClick: function ($noty) {
                 $noty.close()
                 resolve()
@@ -193,22 +227,23 @@ export default {
       }
       const remainingSpots = totalSpotsAvailable - numberEnrolled
 
-      const requests = []
+      if (!course.free) {
+        const requests = []
+        for (const prepaid of availablePrepaids) {
+          if (!prepaid.includesCourse(course._id) || !Math.min(unenrolledStudents.length, prepaid.openSpots()) > 0) {
+            // Not able to assign to this prepaid.
+            continue
+          }
 
-      for (const prepaid of availablePrepaids) {
-        if (!Math.min(unenrolledStudents.length, prepaid.openSpots()) > 0) {
-          // Not able to assign to this prepaid.
-          continue
+          const availableLicenses = Math.min(unenrolledStudents.length, prepaid.openSpots())
+          for (let i = 0; i < availableLicenses; i++) {
+            const user = unenrolledStudents.pop()
+            requests.push(prepaid.redeem(user.get('_id'), { data: { sharedClassroomId } }))
+          }
         }
 
-        const availableLicenses = Math.min(unenrolledStudents.length, prepaid.openSpots())
-        for (let i = 0; i < availableLicenses; i++) {
-          const user = unenrolledStudents.pop()
-          requests.push(prepaid.redeem(user.get('_id'), { data: { sharedClassroomId } }))
-        }
+        await Promise.all(requests)
       }
-
-      await Promise.all(requests)
 
       try {
         noty({ text: $.i18n.t('teacher.assigning_course'), layout: 'center', type: 'information', killer: true })
@@ -219,7 +254,7 @@ export default {
             .replace('{{numberAssigned}}', members.length)
             .replace('{{courseName}}', course.name)
         ]
-        if (numberEnrolled > 0) {
+        if (!course.free && numberEnrolled > 0) {
           lines.push(
             $.i18n.t('teacher.assigned_msg_2')
               .replace('{{numberEnrolled}}', numberEnrolled)
@@ -231,7 +266,7 @@ export default {
         }
         noty({ text: lines.join('<br />'), layout: 'center', type: 'information', killer: true, timeout: 5000 })
       } catch (e) {
-        throw e
+        noty({ text: JSON.stringify(e), type: 'error' })
       }
     },
 
@@ -264,8 +299,13 @@ export default {
     // TODO move to server in the classroom creation flow
     async createFreeCourseInstances ({ state, commit }, { classroom, courses }) {
       const freeCourses = courses.filter((c) => c.free === true)
+      const initialFreeCourses = classroom.initialFreeCourses || [utils.courseIDs.INTRODUCTION_TO_COMPUTER_SCIENCE]
       const courseInstancePromises = []
       freeCourses.forEach((c) => {
+        if(!initialFreeCourses.includes(c._id)) {
+          return
+        }
+
         courseInstancePromises.push(courseInstancesApi.post({ classroomID: classroom._id, courseID: c._id }).then((ci) => {
           commit('addCourseInstancesForTeacher', { // update course-instance state
             teacherId: classroom.ownerID,

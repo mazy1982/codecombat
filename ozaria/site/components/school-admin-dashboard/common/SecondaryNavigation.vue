@@ -1,44 +1,45 @@
 <script>
-  import { COMPONENT_NAMES, PAGE_TITLES } from './constants'
-  export default {
-    computed: {
-      schoolsTabSelected () {
-        return this.$route.path === '/school-administrator' || this.$route.path.startsWith('/school-administrator/teacher')
-      },
-
-      licensesTabSelected () {
-        return this.$route.path.startsWith('/school-administrator/licenses')
-      },
-
-      schoolTabsTitle () {
-        return PAGE_TITLES[COMPONENT_NAMES.MY_SCHOOLS]
-      },
-
-      licensesTabTitle () {
-        return PAGE_TITLES[COMPONENT_NAMES.SCHOOL_ADMIN_LICENSES]
-      }
+import { COMPONENT_NAMES, PAGE_TITLES } from './constants'
+export default {
+  computed: {
+    schoolsTabSelected () {
+      return this.$route.path === '/school-administrator' || this.$route.path.startsWith('/school-administrator/teacher')
     },
 
-    methods: {
-      trackEvent (e) {
-        const eventName = e.target.dataset['action']
-        const eventLabel = e.target.dataset['label']
-        if (eventName) {
-          if (eventLabel) {
-            window.tracker?.trackEvent(eventName, { category: 'SchoolAdmin', label: eventLabel })
-          } else {
-            window.tracker?.trackEvent(eventName, { category: 'SchoolAdmin' })
-          }
+    licensesTabSelected () {
+      return this.$route.path.startsWith('/school-administrator/licenses')
+    },
+
+    schoolTabsTitle () {
+      const i18nKey = PAGE_TITLES[COMPONENT_NAMES.MY_SCHOOLS].split('i18n:')[1]
+      return $.i18n.t(i18nKey)
+    },
+
+    licensesTabTitle () {
+      const i18nKey = PAGE_TITLES[COMPONENT_NAMES.SCHOOL_ADMIN_LICENSES].split('i18n:')[1]
+      return $.i18n.t(i18nKey)
+    }
+  },
+
+  methods: {
+    trackEvent (e) {
+      const eventName = e.target.dataset.action
+      const eventLabel = e.target.dataset.label
+      if (eventName) {
+        if (eventLabel) {
+          window.tracker?.trackEvent(eventName, { category: 'SchoolAdmin', label: eventLabel })
+        } else {
+          window.tracker?.trackEvent(eventName, { category: 'SchoolAdmin' })
         }
       }
     }
   }
+}
 </script>
 
 <template>
   <ul
-    id="secondaryNav"
-    class="nav"
+    class="nav secondaryNav"
     role="navigation"
   >
     <li>
@@ -103,13 +104,14 @@
   margin-right: 8px;
 }
 
-#secondaryNav {
+.secondaryNav {
   display: flex;
   flex-direction: row;
   justify-content: flex-start;
   padding-left: 23.5px;
   height: 35px;
   min-height: 35px;
+  font-family: $ozaria-main-font-family;
 
   & > li {
     height: 35px;
@@ -121,12 +123,12 @@
     justify-content: center;
     align-items: center;
 
-    background-color: $twilight;
+    background-color: var(--color-primary);
     border-radius: 10px 10px 0 0;
 
     a.current-route, & > a:hover {
       background-color: #F2F2F2;
-      color: $twilight;
+      color: var(--color-primary);
       border: 1px solid #d8d8d8;
       border-bottom: unset;
     }

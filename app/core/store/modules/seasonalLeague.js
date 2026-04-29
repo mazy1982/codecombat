@@ -1,15 +1,16 @@
-import { getLeaderboard, getMyRank, getLeaderboardPlayerCount,
+import {
+  getLeaderboard, getMyRank, getLeaderboardPlayerCount,
   getCodePointsLeaderboard, getCodePointsRankForUser,
-  getCodePointsPlayerCount } from '../../api/leaderboard'
+  getCodePointsPlayerCount
+} from '../../api/leaderboard'
 import { fetchMySessions } from '../../api/level-sessions'
-import { activeArenas } from '../../utils'
+import { activeArenas, activeAndPastArenas } from '../../utils'
 import { getUsableArenas } from '../../api/arenas'
 import _ from 'lodash'
 
-const currentRegularArena = _.last(_.filter(activeArenas(), a => a.type === 'regular'))
-const currentChampionshipArena = _.last(_.filter(activeArenas(), a => a.type === 'championship'))
-const currentRegularArenaOriginal = currentRegularArena ? currentRegularArena.levelOriginal : null
-const currentChampionshipArenaOriginal = currentChampionshipArena ? currentChampionshipArena.levelOriginal : null
+export const currentRegularArena = _.last(_.filter(activeArenas(), a => a.type === 'regular' || a.noRegular))
+export const currentChampionshipArena = _.last(_.filter(activeArenas(), a => a.type === 'championship'))
+export const findArena = (season, type) => activeAndPastArenas().find(a => a.season === season && a.type === type)
 
 /**
  * We want to be able to fetch and store rankings for
@@ -19,6 +20,10 @@ const currentChampionshipArenaOriginal = currentChampionshipArena ? currentChamp
 export default {
   namespaced: true,
   state: {
+    currentRegularArena,
+    currentChampionshipArena,
+    currentRegularArenaOriginal: currentRegularArena ? currentRegularArena.levelOriginal : null,
+    currentChampionshipArenaOriginal: currentChampionshipArena ? currentChampionshipArena.levelOriginal : null,
     loading: false,
     mySession: {},
     myChampionshipSession: {},
@@ -45,6 +50,19 @@ export default {
   mutations: {
     setLoading (state, loading) {
       state.loading = loading
+    },
+
+    paginateArenas (state, direction = 'next') {
+      const season = state.currentRegularArena.season
+      const increment = direction === 'next' ? 1 : -1
+
+      const nextOrPreviousRegularArena = findArena(season + increment, 'regular')
+      const nextOrPreviousChampionshipArena = findArena(season + increment, 'championship')
+
+      Vue.set(state, 'currentRegularArena', nextOrPreviousRegularArena)
+      Vue.set(state, 'currentChampionshipArena', nextOrPreviousChampionshipArena)
+      Vue.set(state, 'currentRegularArenaOriginal', nextOrPreviousRegularArena ? nextOrPreviousRegularArena.levelOriginal : null)
+      Vue.set(state, 'currentChampionshipArenaOriginal', nextOrPreviousChampionshipArena ? nextOrPreviousChampionshipArena.levelOriginal : null)
     },
 
     setGlobalRanking (state, rankingsList) {
@@ -108,7 +126,7 @@ export default {
     },
 
     setCodePointsPlayerCount (state, playerCount) {
-      Vue.set(state.codePointsRankingsForLeague, 'playerCount', playerCount);
+      Vue.set(state.codePointsRankingsForLeague, 'playerCount', playerCount)
     },
 
     setMyCodePointsRank (state, myCodePointsRank) {
@@ -131,6 +149,14 @@ export default {
 
     globalChampionshipLeaderboardPlayerCount (state) {
       return state.championshipGlobalRankings.globalLeaderboardPlayerCount
+    },
+
+    currentRegularArena (state) {
+      return state.currentRegularArena
+    },
+
+    currentChampionshipArena (state) {
+      return state.currentChampionshipArena
     },
 
     globalRankings (state) {
@@ -279,15 +305,15 @@ export default {
   },
 
   actions: {
-    async loadGlobalRequiredData ({ commit, dispatch }) {
-      if (!currentRegularArena) return
+    async loadGlobalRequiredData ({ commit, dispatch, state }) {
+      if (!state.currentRegularArena) return
       commit('setLoading', true)
       commit('clearMySession')
       const awaitPromises = [
         dispatch('fetchGlobalLeaderboard'),
         dispatch('fetchGlobalLeaderboardPlayerCount')
       ]
-      const sessionsData = await fetchMySessions(currentRegularArenaOriginal)
+      const sessionsData = await fetchMySessions(state.currentRegularArenaOriginal)
 
       if (Array.isArray(sessionsData) && sessionsData.length > 0) {
         const teamSession = sessionsData.find((session) => session.team === 'humans')
@@ -299,9 +325,9 @@ export default {
 
         if (score !== undefined) {
           const [playersAbove, playersBelow, myRank] = await Promise.all([
-            getLeaderboard(currentRegularArenaOriginal, { order: 1, scoreOffset: score, limit: 4 }),
-            getLeaderboard(currentRegularArenaOriginal, { order: -1, scoreOffset: score, limit: 4 }),
-            getMyRank(currentRegularArenaOriginal, teamSession._id, {
+            getLeaderboard(state.currentRegularArenaOriginal, { order: 1, scoreOffset: score, limit: 4 }),
+            getLeaderboard(state.currentRegularArenaOriginal, { order: -1, scoreOffset: score, limit: 4 }),
+            getMyRank(state.currentRegularArenaOriginal, teamSession._id, {
               scoreOffset: score,
               team: 'humans'
             })
@@ -333,14 +359,14 @@ export default {
       commit('setLoading', false)
     },
 
-    async loadChampionshipGlobalRequiredData ({ commit, dispatch }) {
-      if (!currentChampionshipArena) return
+    async loadChampionshipGlobalRequiredData ({ commit, dispatch, state }) {
+      if (!state.currentChampionshipArena) return
       commit('clearMyChampionshipSession')
       const awaitPromises = [
         dispatch('fetchChampionshipGlobalLeaderboard'),
         dispatch('fetchChampionshipGlobalLeaderboardPlayerCount')
       ]
-      const sessionsData = await fetchMySessions(currentChampionshipArenaOriginal)
+      const sessionsData = await fetchMySessions(state.currentChampionshipArenaOriginal)
 
       if (Array.isArray(sessionsData) && sessionsData.length > 0) {
         const teamSession = sessionsData.find((session) => session.team === 'humans')
@@ -353,9 +379,9 @@ export default {
 
         if (score !== undefined) {
           const [playersAbove, playersBelow, myRank] = await Promise.all([
-            getLeaderboard(currentChampionshipArenaOriginal, { order: 1, scoreOffset: score, limit: 4 }),
-            getLeaderboard(currentChampionshipArenaOriginal, { order: -1, scoreOffset: score, limit: 4 }),
-            getMyRank(currentChampionshipArenaOriginal, teamSession._id, {
+            getLeaderboard(state.currentChampionshipArenaOriginal, { order: 1, scoreOffset: score, limit: 4 }),
+            getLeaderboard(state.currentChampionshipArenaOriginal, { order: -1, scoreOffset: score, limit: 4 }),
+            getMyRank(state.currentChampionshipArenaOriginal, teamSession._id, {
               scoreOffset: score,
               team: 'humans'
             })
@@ -386,8 +412,8 @@ export default {
       await Promise.all(awaitPromises)
     },
 
-    async loadClanRequiredData ({ commit }, { leagueId }) {
-      if (!currentRegularArena) return
+    async loadClanRequiredData ({ commit, state }, { leagueId }) {
+      if (!state.currentRegularArena) return
       const leagueRankingInfo = {
         top: [],
         playersAbove: [],
@@ -395,7 +421,7 @@ export default {
       }
       commit('clearMySession')
 
-      const topLeagueRankingPromise = getLeaderboard(currentRegularArenaOriginal, {
+      const topLeagueRankingPromise = getLeaderboard(state.currentRegularArenaOriginal, {
         order: -1,
         scoreOffset: 1000000,
         limit: 20,
@@ -406,7 +432,7 @@ export default {
         leagueRankingInfo.top = _.uniq(ranking, true, session => session._id)
       })
 
-      const leagueLeaderboardPlayerCountPromise = getLeaderboardPlayerCount(currentRegularArenaOriginal, {
+      const leagueLeaderboardPlayerCountPromise = getLeaderboardPlayerCount(state.currentRegularArenaOriginal, {
         team: 'humans',
         'leagues.leagueID': leagueId
       }).then(playerCount => {
@@ -418,7 +444,7 @@ export default {
         leagueLeaderboardPlayerCountPromise
       ]
 
-      const sessionsData = await fetchMySessions(currentRegularArenaOriginal)
+      const sessionsData = await fetchMySessions(state.currentRegularArenaOriginal)
 
       if (Array.isArray(sessionsData) && sessionsData.length > 0) {
         const teamSession = sessionsData.find((session) => session.team === 'humans')
@@ -429,10 +455,10 @@ export default {
         const score = (((teamSession.leagues || []).find(({ leagueID }) => leagueID === leagueId) || {}).stats || {}).totalScore
 
         if (score !== undefined) {
-          const [ playersAbove, playersBelow, myRank ] = await Promise.all([
-            getLeaderboard(currentRegularArenaOriginal, { order: 1, scoreOffset: score, limit: 4, 'leagues.leagueID': leagueId }),
-            getLeaderboard(currentRegularArenaOriginal, { order: -1, scoreOffset: score, limit: 4, 'leagues.leagueID': leagueId }),
-            getMyRank(currentRegularArenaOriginal, teamSession._id, {
+          const [playersAbove, playersBelow, myRank] = await Promise.all([
+            getLeaderboard(state.currentRegularArenaOriginal, { order: 1, scoreOffset: score, limit: 4, 'leagues.leagueID': leagueId }),
+            getLeaderboard(state.currentRegularArenaOriginal, { order: -1, scoreOffset: score, limit: 4, 'leagues.leagueID': leagueId }),
+            getMyRank(state.currentRegularArenaOriginal, teamSession._id, {
               scoreOffset: score,
               team: 'humans',
               'leagues.leagueID': leagueId
@@ -461,11 +487,11 @@ export default {
 
       await Promise.all(awaitPromises)
 
-      commit('setLeagueRanking', { leagueId: leagueId, ranking: leagueRankingInfo })
+      commit('setLeagueRanking', { leagueId, ranking: leagueRankingInfo })
     },
 
-    async loadChampionshipClanRequiredData ({ commit }, { leagueId }) {
-      if (!currentChampionshipArena) return
+    async loadChampionshipClanRequiredData ({ commit, state }, { leagueId }) {
+      if (!state.currentChampionshipArena) return
       const leagueRankingInfo = {
         top: [],
         playersAbove: [],
@@ -473,7 +499,7 @@ export default {
       }
       commit('clearMyChampionshipSession')
 
-      const topLeagueRankingPromise = getLeaderboard(currentChampionshipArenaOriginal, {
+      const topLeagueRankingPromise = getLeaderboard(state.currentChampionshipArenaOriginal, {
         order: -1,
         scoreOffset: 1000000,
         limit: 20,
@@ -484,7 +510,7 @@ export default {
         leagueRankingInfo.top = _.uniq(ranking, true, session => session._id)
       })
 
-      const leagueLeaderboardPlayerCountPromise = getLeaderboardPlayerCount(currentChampionshipArenaOriginal, {
+      const leagueLeaderboardPlayerCountPromise = getLeaderboardPlayerCount(state.currentChampionshipArenaOriginal, {
         team: 'humans',
         'leagues.leagueID': leagueId
       }).then(playerCount => {
@@ -496,7 +522,7 @@ export default {
         leagueLeaderboardPlayerCountPromise
       ]
 
-      const sessionsData = await fetchMySessions(currentChampionshipArenaOriginal)
+      const sessionsData = await fetchMySessions(state.currentChampionshipArenaOriginal)
 
       if (Array.isArray(sessionsData) && sessionsData.length > 0) {
         const teamSession = sessionsData.find((session) => session.team === 'humans')
@@ -506,10 +532,10 @@ export default {
         const score = (((teamSession.leagues || []).find(({ leagueID }) => leagueID === leagueId) || {}).stats || {}).totalScore
 
         if (score !== undefined) {
-          const [ playersAbove, playersBelow, myRank ] = await Promise.all([
-            getLeaderboard(currentChampionshipArenaOriginal, { order: 1, scoreOffset: score, limit: 4, 'leagues.leagueID': leagueId }),
-            getLeaderboard(currentChampionshipArenaOriginal, { order: -1, scoreOffset: score, limit: 4, 'leagues.leagueID': leagueId }),
-            getMyRank(currentChampionshipArenaOriginal, teamSession._id, {
+          const [playersAbove, playersBelow, myRank] = await Promise.all([
+            getLeaderboard(state.currentChampionshipArenaOriginal, { order: 1, scoreOffset: score, limit: 4, 'leagues.leagueID': leagueId }),
+            getLeaderboard(state.currentChampionshipArenaOriginal, { order: -1, scoreOffset: score, limit: 4, 'leagues.leagueID': leagueId }),
+            getMyRank(state.currentChampionshipArenaOriginal, teamSession._id, {
               scoreOffset: score,
               team: 'humans',
               'leagues.leagueID': leagueId
@@ -538,7 +564,7 @@ export default {
 
       await Promise.all(awaitPromises)
 
-      commit('setChampionshipLeagueRanking', { leagueId: leagueId, ranking: leagueRankingInfo })
+      commit('setChampionshipLeagueRanking', { leagueId, ranking: leagueRankingInfo })
     },
 
     async loadCodePointsRequiredData ({ commit }, { leagueId }) {
@@ -557,7 +583,7 @@ export default {
       })
 
       if (me.get('stats') && me.get('stats').codePoints) {
-        const [ playersAbove, playersBelow, myRank ] = await Promise.all([
+        const [playersAbove, playersBelow, myRank] = await Promise.all([
           getCodePointsLeaderboard(leagueId, { order: 1, scoreOffset: me.get('stats').codePoints, limit: 4 }),
           getCodePointsLeaderboard(leagueId, { order: -1, scoreOffset: me.get('stats').codePoints, limit: 4 }),
           getCodePointsRankForUser(leagueId, me.id, { scoreOffset: me.get('stats').codePoints })
@@ -580,7 +606,8 @@ export default {
           creatorName: me.broadName(),
           rank: parseInt(myRank, 10),
           totalScore: me.get('stats').codePoints,
-          creator: me.id
+          creator: me.id,
+          submittedCodeLanguage: me.get('aceConfig')?.language,
         }
 
         codePointsRankingInfo.playersAbove = playersAbove
@@ -599,7 +626,7 @@ export default {
 
       await topCodePointsRankingPromise
 
-      commit('setCodePointsRanking', { leagueId: leagueId, ranking: codePointsRankingInfo })
+      commit('setCodePointsRanking', { leagueId, ranking: codePointsRankingInfo })
 
       getCodePointsPlayerCount(leagueId, {})
         .then((playerCount) => {
@@ -608,39 +635,39 @@ export default {
         .catch(err => console.error(err))
     },
 
-    async fetchGlobalLeaderboard ({ commit }) {
-      if (!currentRegularArena) return
-      const ranking = await getLeaderboard(currentRegularArenaOriginal, {
+    async fetchGlobalLeaderboard ({ commit, state }) {
+      if (!state.currentRegularArena) return
+      const ranking = await getLeaderboard(state.currentRegularArenaOriginal, {
         order: -1,
         scoreOffset: 1000000,
         limit: 20,
         team: 'humans',
-        '_': Math.floor(Math.random() * 100000000)
+        _: Math.floor(Math.random() * 100000000)
       })
       commit('setGlobalRanking', ranking)
     },
 
-    async fetchChampionshipGlobalLeaderboard ({ commit }) {
-      if (!currentChampionshipArena) return
-      const ranking = await getLeaderboard(currentChampionshipArenaOriginal, {
+    async fetchChampionshipGlobalLeaderboard ({ commit, state }) {
+      if (!state.currentChampionshipArena) return
+      const ranking = await getLeaderboard(state.currentChampionshipArenaOriginal, {
         order: -1,
         scoreOffset: 1000000,
         limit: 20,
         team: 'humans',
-        '_': Math.floor(Math.random() * 100000000)
+        _: Math.floor(Math.random() * 100000000)
       })
       commit('setChampionshipGlobalRanking', ranking)
     },
 
-    async fetchGlobalLeaderboardPlayerCount ({ commit }) {
-      if (!currentRegularArena) return
-      const playerCount = await getLeaderboardPlayerCount(currentRegularArenaOriginal, {})
+    async fetchGlobalLeaderboardPlayerCount ({ commit, state }) {
+      if (!state.currentRegularArena) return
+      const playerCount = await getLeaderboardPlayerCount(state.currentRegularArenaOriginal, {})
       commit('setGlobalLeaderboardPlayerCount', parseInt(playerCount, 10))
     },
 
-    async fetchChampionshipGlobalLeaderboardPlayerCount ({ commit }) {
-      if (!currentChampionshipArena) return
-      const playerCount = await getLeaderboardPlayerCount(currentChampionshipArenaOriginal, {})
+    async fetchChampionshipGlobalLeaderboardPlayerCount ({ commit, state }) {
+      if (!state.currentChampionshipArena) return
+      const playerCount = await getLeaderboardPlayerCount(state.currentChampionshipArenaOriginal, {})
       commit('setChampionshipGlobalLeaderboardPlayerCount', parseInt(playerCount, 10))
     },
 

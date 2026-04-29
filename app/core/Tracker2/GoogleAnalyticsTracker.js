@@ -10,6 +10,40 @@ export default class GoogleAnalyticsTracker extends BaseTracker {
   }
 
   async _initializeTracker () {
+    this.watchForDisableAllTrackingChanges(this.store)
+
+    const consentValue = (value) => {
+      return {
+        analytics_storage: value,
+        ad_storage: value,
+        ad_user_data: value,
+        ad_personalization: value,
+      }
+    }
+
+    // Update Google Consent Mode state — layout.static.pug already called
+    // gtag('consent', 'default', ...) before gtag('config', ...), so we must
+    // use 'update' here to avoid violating the ordering requirement.
+    if (window.gtag) {
+      if (this.disableAllTracking) {
+        window.gtag('consent', 'update', consentValue('denied'))
+      } else {
+        window.gtag('consent', 'update', consentValue('granted'))
+      }
+
+      // Watch for consent changes
+      this.store.watch(
+        (_state, getters) => getters['tracker/disableAllTracking'],
+        (disableAllTracking) => {
+          if (disableAllTracking) {
+            window.gtag('consent', 'update', consentValue('denied'))
+          } else {
+            window.gtag('consent', 'update', consentValue('granted'))
+          }
+        },
+      )
+    }
+
     this.onInitializeSuccess()
   }
 
@@ -44,6 +78,9 @@ export default class GoogleAnalyticsTracker extends BaseTracker {
       gaFieldObject.eventValue = properties.value || properties.predictedLtv || properties.purchaseAmount
     }
     ga('send', gaFieldObject)
+    if (window.gtag4Installed) {
+      window.gtag('event', gaFieldObject.eventAction, this.ga4Object(gaFieldObject))
+    }
   }
 
   async trackTiming (duration, category, variable, label) {
@@ -58,5 +95,19 @@ export default class GoogleAnalyticsTracker extends BaseTracker {
     this.log('tracking timing', duration, category, variable, label)
     // https://developers.google.com/analytics/devguides/collection/analyticsjs/user-timings
     ga('send', 'timing', category, variable, duration, label)
+  }
+
+  ga4Object (gaObject) {
+    const obj = {}
+    if (gaObject.eventCategory) {
+      obj.event_category = gaObject.eventCategory
+    }
+    if (gaObject.eventLabel) {
+      obj.event_label = gaObject.eventLabel
+    }
+    if (gaObject.eventValue) {
+      obj.value = gaObject.eventValue
+    }
+    return obj
   }
 }

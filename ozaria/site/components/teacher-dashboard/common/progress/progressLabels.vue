@@ -1,47 +1,116 @@
 <script>
-  import IconHelp from '../../common/icons/IconHelp'
-  import ProgressDot from '../../common/progress/progressDot'
+import IconHelp from '../../common/icons/IconHelp'
+import ProgressDot from '../../common/progress/progressDot'
+import utils from 'core/utils'
 
-  export default {
-    components: {
-      IconHelp,
-      ProgressDot
+export default {
+  components: {
+    IconHelp,
+    ProgressDot,
+  },
+  props: {
+    showReviewLabels: {
+      type: Boolean,
+      default: false,
     },
-    props: {
-      showReviewLabels: {
-        type: Boolean,
-        default: false
-      }
+  },
+  data () {
+    return {
+      isOzaria: utils.isOzaria,
+      isCodeCombat: utils.isCodeCombat,
     }
-  }
+  },
+}
 </script>
 
 <template>
   <div class="progress-labels">
     <div class="img-subtext">
-      <div class="dot-border"><div class="dot green-dot"></div></div>
+      <div class="dot-border">
+        <div class="dot green-dot" />
+      </div>
       <span>{{ $t('courses.complete') }}</span>
     </div>
     <div class="img-subtext">
-      <div class="dot-border"><div class="dot teal-dot"></div></div>
+      <div class="dot-border">
+        <div class="dot teal-dot" />
+      </div>
       <span>{{ $t('teacher.in_progress') }}</span>
     </div>
     <div class="img-subtext">
-      <div class="dot-border"><div class="dot assigned-dot"></div></div>
+      <div class="dot-border">
+        <div class="dot assigned-dot" />
+      </div>
       <span>{{ $t('teacher.assigned') }}</span>
     </div>
-    <div class="img-subtext" v-if="showReviewLabels">
+    <div
+      v-if="showReviewLabels"
+      class="img-subtext"
+    >
       <progress-dot
         :is-locked="true"
         class="dot-border"
       />
       <span>{{ $t("common.locked") }}</span>
     </div>
-    <div class="img-subtext" v-if="showReviewLabels">
-      <div class="dot-border concept-flag-border"><div class="dot green-dot"></div></div>
+
+    <div
+      v-if="isCodeCombat"
+      class="img-subtext"
+    >
+      <progress-dot
+        status="complete"
+        :border="'red'"
+      />
+      <span>{{ $t('teacher_dashboard.violation') }}</span>
+    </div>
+
+    <div
+      v-if="isCodeCombat"
+      class="img-subtext"
+    >
+      <progress-dot
+        status="complete"
+        :border="'purple'"
+      />
+      <span>{{ $t('teacher_dashboard.warning') }}</span>
+    </div>
+    <div
+      v-if="isOzaria && showReviewLabels"
+      class="img-subtext"
+    >
+      <div class="dot-border concept-flag-border">
+        <div class="dot green-dot" />
+      </div>
       <span>{{ $t('teacher_dashboard.concept_flag') }}</span>
     </div>
-    <div v-if="showReviewLabels" class="help-container">
+    <div
+      v-if="showReviewLabels"
+      class="img-subtext"
+    >
+      <div class="dot-border">
+        <div class="dot">
+          <img src="/images/ozaria/teachers/dashboard/svg_icons/IconSkippedLevel.svg">
+        </div>
+      </div>
+      <span>{{ $t('teacher_dashboard.skipped') }}</span>
+    </div>
+    <div
+      v-if="showReviewLabels"
+      class="img-subtext"
+    >
+      <div class="dot-border">
+        <div class="dot">
+          <img src="/images/ozaria/teachers/dashboard/svg_icons/IconOptionalLevel.svg">
+        </div>
+      </div>
+      <span>{{ $t('teacher_dashboard.optional') }}</span>
+    </div>
+
+    <div
+      v-if="showReviewLabels"
+      class="help-container"
+    >
       <v-popover
         popover-class="teacher-dashboard-tooltip lighter-p large-width"
         trigger="hover"
@@ -51,21 +120,73 @@
         <!-- The tooltip -->
         <template slot="popover">
           <div>
-            <h3 style="margin-bottom: 15px;">{{ $t('teacher_dashboard.support_learning') }}</h3>
-            <div class="supportGrid">
-              <div class="top-row">
+            <h3 style="margin-bottom: 15px;">
+              {{ $t('teacher_dashboard.support_learning') }}
+            </h3>
+            <div
+              v-if="isOzaria"
+              class="supportGrid"
+            >
+              <div class="top-row golden-olive-border">
                 <p>{{ $t('teacher.all_students') }}</p>
               </div>
-              <div class="top-row">
-                <div class="dot-border concept-flag-border"><div class="dot green-dot"></div></div>
+              <div class="top-row golden-olive-border">
+                <progress-dot
+                  :status="'complete'"
+                  :border="'red'"
+                />
               </div>
-              <div class="description top-row">
+              <div class="description top-row golden-olive-border">
                 <p>{{ $t('teacher_dashboard.concept_flag_desc') }}</p>
               </div>
-              <div class="bottom-row"><p> {{ $t('courses.student') }} </p></div>
-              <div class="bottom-row"><div class="dot-border concept-flag-border"><div class="dot green-dot"></div></div></div>
-              <div class="description bottom-row">
+              <div class="bottom-row light-gray-border">
+                <p> {{ $t('courses.student') }} </p>
+              </div>
+              <div class="bottom-row light-gray-border">
+                <progress-dot
+                  :status="'complete'"
+                  :border="'red'"
+                />
+              </div>
+              <div class="description bottom-row light-gray-border">
                 <p> {{ $t('teacher_dashboard.concept_flag_desc2') }} </p>
+              </div>
+            </div>
+            <div
+              v-else
+              class="supportGrid"
+            >
+              <div class="top-row light-gray-border">
+                <p> {{ $t('courses.student') }} </p>
+              </div>
+              <div class="top-row light-gray-border">
+                <progress-dot
+                  :status="'complete'"
+                  :extra-practice-levels="[
+                    { name:' Practice Level A', inProgress: true, isCompleted: true },
+                    { name: 'Practice Level B', inProgress: true, isCompleted: true },
+                    { name: 'Practice Level C', inProgress: true, isCompleted: true },
+                  ]"
+                />
+              </div>
+              <div class="description top-row light-gray-border">
+                <p>{{ $t('teacher_dashboard.completed_all_practice_levels') }}</p>
+              </div>
+              <div class="bottom-row light-gray-border">
+                <p> {{ $t('courses.student') }} </p>
+              </div>
+              <div class="bottom-row light-gray-border">
+                <progress-dot
+                  :status="'complete'"
+                  :extra-practice-levels="[
+                    { name:' Practice Level A', inProgress: true, isCompleted: true },
+                    { name: 'Practice Level B', inProgress: true },
+                    { name: 'Practice Level C', inProgress: false },
+                  ]"
+                />
+              </div>
+              <div class="description bottom-row light-gray-border">
+                <p> {{ $t('teacher_dashboard.played_some_practice_levels') }} </p>
               </div>
             </div>
             <p style="margin-top: 20px; font-family: Monaco, Menlo, Ubuntu Mono, Consolas, source-code-pro, monospace; font-size: 12px;">
@@ -89,8 +210,8 @@
 
   display: flex;
   flex-direction: row;
-  justify-content: center;
-  align-items: center;
+  justify-content: space-around;
+  align-items: flex-start;
 
   & > div {
     width: 50px;
@@ -99,6 +220,13 @@
 
   & > div.help-container {
     width: 26px;
+
+    ::v-deep .v-popover {
+      display: flex;
+      .trigger {
+        line-height: 19px;
+      }
+    }
   }
 }
 
@@ -115,6 +243,7 @@
   font-size: 10px;
   line-height: 11px;
   text-align: center;
+  white-space: nowrap;
 }
 
 .dot-border {
@@ -184,14 +313,17 @@
     }
   }
 
-  .top-row {
+  .bottom-row {
+    border-top: unset;
+  }
+
+  .golden-olive-border {
     background: #fff9e3;
     border: 0.5px solid #c2a957;
   }
 
-  .bottom-row {
+  .light-gray-border {
     border: 0.5px solid #d8d8d8;
-    border-top: unset;
   }
 
   .description p {

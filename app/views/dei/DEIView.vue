@@ -1,5 +1,5 @@
 <script>
-import ModalGetLicenses from '../../../ozaria/site/components/teacher-dashboard/modals/ModalGetLicenses'
+import ModalGetLicenses from 'app/components/common/ModalGetLicenses'
 import ModalCharCustomization from '../../../ozaria/site/components/char-customization/ModalCharCustomization'
 
 export default {
@@ -10,15 +10,15 @@ export default {
   },
 
   data: () => ({
-    showModalGetLicenses: false,
+    showModalGetLicenses: false
   }),
 
   methods: {
     onClickSalesCTA (e) {
       window.tracker?.trackEvent('DEI Contact Clicked', { category: 'Teachers', label: `${this.$route.path}` })
       this.showModalGetLicenses = true
-    },
-  },
+    }
+  }
 }
 </script>
 
@@ -365,4 +365,3 @@ export default {
   }
 }
 </style>
-

@@ -1,18 +1,18 @@
 <script>
-  import Modal from '../../../common/Modal'
-  import ModalAssignForm from './ModalAssignForm'
+import Modal from '../../../common/Modal'
+import ModalAssignForm from './ModalAssignForm'
 
-  export default Vue.extend({
-    components: {
-      Modal,
-      ModalAssignForm
-    }
-  })
+export default Vue.extend({
+  components: {
+    Modal,
+    ModalAssignForm
+  }
+})
 </script>
 
 <template>
   <modal
-    :title="'Assign Content'"
+    :title="$t('teacher_dashboard.assign_content')"
     @close="$emit('close')"
   >
     <modal-assign-form @close="$emit('close')" />

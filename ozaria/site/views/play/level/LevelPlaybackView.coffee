@@ -3,6 +3,7 @@ CocoView = require 'views/core/CocoView'
 template = require 'app/templates/play/level/level-playback-view'
 {me} = require 'core/auth'
 store = require 'core/store'
+utils = require 'core/utils'
 
 module.exports = class LevelPlaybackView extends CocoView
   id: 'playback-view'
@@ -39,6 +40,9 @@ module.exports = class LevelPlaybackView extends CocoView
     '⌘+⇧+[, ctrl+⇧+[': 'onSingleScrubBack'
     '⌘+], ctrl+]': 'onScrubForward'
     '⌘+⇧+], ctrl+⇧+]': 'onSingleScrubForward'
+
+  initialize: ->
+    @utils = utils
 
   afterRender: ->
     super()
@@ -142,6 +146,8 @@ module.exports = class LevelPlaybackView extends CocoView
     ended = button.hasClass 'ended'
     changed = button.hasClass('playing') isnt playing
     button.toggleClass('playing', playing and not ended).toggleClass('paused', not playing and not ended)
+    modifierKey = if /Mac/.test(navigator?.appVersion) then "⌘" else "Ctrl"
+    button.attr 'title', "#{modifierKey} + P: #{if playing then 'Play' else 'Pause'}"
 
     # TODO: replace with Ozaria sound
     # @playSound (if playing then 'playback-play' else 'playback-pause') unless @options.level.isType('game-dev')

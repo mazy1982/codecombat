@@ -1,5 +1,5 @@
 import { merge } from 'lodash'
-import { i18n } from 'app/core/utils'
+import { i18n, isCodeCombat, removeAI, showOzaria } from 'app/core/utils'
 
 /**
  Utility functions for ozaria
@@ -15,14 +15,12 @@ export function getOzariaAssetUrl (assetName) {
  * Calculates all the next levels for a list of levels in a classroom/campaign based on the level sessions.
  * @param {Object[]} sessions - The list of level session objects.
  * @param {Object[]|Object} levels - The list of level objects, or an object with keys as level original id and value as level data.
- * @param {Object} levels.nextLevels - The array of nextLevels for a level.
- * @param {boolean|undefined} levels.isPlayedInStages - True/false/undefined
- * @param {Object} levels.position - The object containing position of a level.
- * @param {boolean} levels.first - Value to determine if a level is the first level of classroom/campaign.
  * @param {Object} levelStatusMap - Optional. Object with key as the level original id, and value as complete/started.
+ * @param {Object} classroom - classroom
+ * @param {string} classroom - course id
  * @returns {string} - Next level's original id.
  */
-export const findNextLevelsBySession = (sessions, levels, levelStatusMap) => {
+export const findNextLevelsBySession = (sessions, levels, levelStatusMap, classroom, courseId) => {
   if (!levelStatusMap) {
     levelStatusMap = getLevelStatusMap(sessions)
   }
@@ -35,6 +33,10 @@ export const findNextLevelsBySession = (sessions, levels, levelStatusMap) => {
     levelDataMap = levels || {}
   }
   for (const [levelOriginal, level] of Object.entries(levelDataMap)) {
+    if (classroom && classroom.isStudentOnSkippedLevel(me.get('_id'), courseId, levelOriginal)) {
+      continue
+    }
+
     const levelStatus = levelStatusMap[levelOriginal]
     const isLevelStarted = typeof levelStatus === 'string' && levelStatus === 'started'
     const isLevelCompleted = typeof levelStatus === 'string' && levelStatus === 'complete'
@@ -50,6 +52,11 @@ export const findNextLevelsBySession = (sessions, levels, levelStatusMap) => {
       } else {
         unlockedLevel = getNextLevelForLevel(level) || {}
       }
+
+      if (unlockedLevel.original && classroom && classroom.isStudentOnSkippedLevel(me.get('_id'), courseId, unlockedLevel.original)) {
+        unlockedLevel = {}
+      }
+
       const unlockedLevelStatus = levelStatusMap[unlockedLevel.original]
       const unlockedLevelCompleted = (typeof unlockedLevelStatus === 'string' && unlockedLevelStatus === 'complete') ||
         (typeof unlockedLevelStatus === 'number' && unlockedLevelStatus >= unlockedLevel.nextLevelStage)
@@ -144,7 +151,13 @@ export const getNextLevelForLevel = (level, capstoneStage = 1) => {
   if (capstoneStage && level.isPlayedInStages) {
     nextLevel = Object.values(nextLevels).filter((n) => (n.conditions || {}).afterCapstoneStage === capstoneStage)
   } else {
-    nextLevel = Object.values(nextLevels)
+    // Ensure that the next level is sorted by afterCapstoneStage
+    nextLevel = Object.values(nextLevels).sort((a, b) => {
+      const afterCapstoneStageA = a.conditions?.afterCapstoneStage ?? 0
+      const afterCapstoneStageB = b.conditions?.afterCapstoneStage ?? 0
+
+      return afterCapstoneStageA - afterCapstoneStageB
+    })
   }
   return nextLevel[0] // assuming there can only be one next level for a given level and/or capstone stage
 }
@@ -167,8 +180,14 @@ export const getNextLevelLink = (levelData, options) => {
   let link = ''
   if (levelData.type === 'intro') {
     link = '/play/intro/' + levelData.slug
+    if (showOzaria()) {
+      link = '/play/ozaria/intro/' + levelData.slug
+    }
   } else {
     link = '/play/level/' + levelData.slug
+    if (showOzaria()) {
+      link = '/play/ozaria/level/' + levelData.slug
+    }
   }
 
   if (options.courseId && options.courseInstanceId) {
@@ -178,6 +197,9 @@ export const getNextLevelLink = (levelData, options) => {
     }
     if (options.nextLevelStage) {
       link += `&capstoneStage=${encodeURIComponent(options.nextLevelStage)}`
+    }
+    if (options.classroomId) {
+      link += `&classroom=${encodeURIComponent(options.classroomId)}`
     }
   } else if (options.courseInstanceId) {
     link += `?course-instance=${encodeURIComponent(options.courseInstanceId)}`
@@ -207,14 +229,12 @@ export const getNextLevelLink = (levelData, options) => {
 }
 
 export function internationalizeConfig (levelConfig, userLocale) {
-  const interactiveConfigI18n = levelConfig.i18n || {}
-
   const userGeneralLocale = (userLocale || '').split('-')[0]
   const fallbackLocale = 'en'
 
-  const userLocaleObject = interactiveConfigI18n[userLocale] || {}
-  const generalLocaleObject = interactiveConfigI18n[userGeneralLocale] || {}
-  const fallbackLocaleObject = interactiveConfigI18n[fallbackLocale] || {}
+  const userLocaleObject = internationalizeConfigAux(levelConfig, userLocale)
+  const generalLocaleObject = internationalizeConfigAux(levelConfig, userGeneralLocale)
+  const fallbackLocaleObject = internationalizeConfigAux(levelConfig, fallbackLocale)
 
   levelConfig = merge(
     {},
@@ -248,11 +268,12 @@ export function internationalizeConfig (levelConfig, userLocale) {
 function internationalizeConfigAux (obj, userLocale) {
   const { i18n } = obj || {}
   if (i18n) {
-    const translatedObj = i18n[userLocale] || {}
+    const translatedObj = removeAI(i18n[userLocale] || {})
     _.merge(obj, translatedObj)
     return
   }
 
+  if (!obj) return
   for (const values of Object.values(obj)) {
     if (Array.isArray(values)) {
       for (const arrayVal of values) {
@@ -275,20 +296,20 @@ export function tryCopy () {
   }
 }
 
-export function internationalizeLevelType(type, withLevelSuffix, withProjectSuffix){
-  if (['challenge', 'capstone', 'practice', 'cutscene', 'intro'].indexOf(type) == -1){
+export function internationalizeLevelType (type, withLevelSuffix, withProjectSuffix) {
+  if (['challenge', 'capstone', 'practice', 'cutscene', 'intro'].indexOf(type) === -1) {
     type = 'practice'
   }
-  let key = 'play_level.level_type_' + type;
+  let key = 'play_level.level_type_' + type
   if (withProjectSuffix && type === 'capstone') {
     key += '_project'
-  } else if (withLevelSuffix){
+  } else if (withLevelSuffix) {
     key += '_level'
   }
   return $.i18n.t(key)
 }
 
-export function internationalizeContentType(type){
+export function internationalizeContentType (type) {
   switch (type) {
     case 'cutscene-video':
       return $.i18n.t('play_level.level_type_cutscene')
@@ -300,8 +321,14 @@ export function internationalizeContentType(type){
       return $.i18n.t('play_level.content_type_cinematic')
     case 'interactive':
       return $.i18n.t('play_level.content_type_interactive')
+    case 'course-ladder':
+      return $.i18n.t('play_level.content_type_arena')
+    case 'ai-use':
+      return $.i18n.t('play_level.use')
+    case 'ai-learn':
+      return $.i18n.t('play_level.learn_to_use')
     default:
-      return this.currentContent.contentType
+      return $.i18n.t(isCodeCombat ? 'play_level.level_type_level' : 'play_level.level_type_challenge') // show everything else as "challenge" for now
   }
 }
 
@@ -352,6 +379,9 @@ export function getGameContentDisplayNameWithType (contentData, withLevelSuffix 
 // `withLevelSuffix` will append 'Level' to the names for practice/capstone/challenge levels
 // `withProjectSuffix` will append 'Project' to the capstone name
 export function getGameContentDisplayType (contentType, withLevelSuffix = true, withProjectSuffix = false) {
+  if (!contentType) {
+    contentType = 'hero'
+  }
   if (contentType.startsWith('practice')) {
     return internationalizeLevelType('practice', withLevelSuffix, withProjectSuffix)
   } else if (contentType.startsWith('capstone')) {

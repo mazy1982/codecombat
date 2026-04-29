@@ -1,12 +1,20 @@
 <script>
-  export default {
-    props: {
-      locked: {
-        type: Boolean,
-        default: false
-      }
+import utils from 'core/utils'
+
+export default {
+  props: {
+    locked: {
+      type: Boolean,
+      default: false
     }
-  }
+  },
+
+  computed: {
+    isCodeCombat () {
+      return utils.isCodeCombat
+    },
+  },
+}
 </script>
 
 <template>
@@ -18,7 +26,7 @@
     <div
       id="PlayChapter"
     />
-    <span>{{ $t('teacher_dashboard.play_chapter') }}</span>
+    <span>{{ $t('teacher_dashboard.play_' + (isCodeCombat ? 'course' : 'chapter')) }}</span>
   </button>
 </template>
 

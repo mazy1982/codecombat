@@ -1,33 +1,44 @@
 <script>
-  import InteractiveTitle from './InteractiveTitle'
-  import LayoutAspectRatioContainer from '../../../common/LayoutAspectRatioContainer'
-  import LayoutChrome from '../../../common/LayoutChrome'
-  import utils from 'core/utils'
+import { mapGetters } from 'vuex'
+import InteractiveTitle from './InteractiveTitle'
+import LayoutAspectRatioContainer from '../../../common/LayoutAspectRatioContainer'
+import LayoutChrome from '../../../common/LayoutChrome'
+import utils from 'core/utils'
 
-  export default {
-    components: {
-      LayoutAspectRatioContainer,
-      LayoutChrome,
-      InteractiveTitle
+export default {
+  components: {
+    LayoutAspectRatioContainer,
+    LayoutChrome,
+    InteractiveTitle
+  },
+
+  props: {
+    interactive: {
+      type: Object,
+      required: true
     },
 
-    props: {
-      interactive: {
-        type: Object,
-        required: true
-      },
-
-      artUrl: {
-        type: String,
-        default: undefined
+    artUrl: {
+      type: String,
+      default: undefined
+    }
+  },
+  computed: {
+    ...mapGetters({
+      soundOn: 'layoutChrome/soundOn',
+      getLevelNumber: 'gameContent/getLevelNumber'
+    }),
+    title () {
+      if (!this.interactive) {
+        return ''
       }
-    },
-    computed:{
-      title(){
-        return utils.i18n(this.interactive, 'displayName') || utils.i18n(this.interactive, 'name')
-      }
+      const id = this.interactive._id
+      const levelNumber = this.getLevelNumber(id) || this.getLevelNumber(this.interactive.original)
+      const levelName = utils.i18n(this.interactive, 'displayName') || utils.i18n(this.interactive, 'name')
+      return `${levelNumber ? `${levelNumber}.` : ''} ${levelName}`
     }
   }
+}
 </script>
 
 <template>

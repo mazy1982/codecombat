@@ -21,15 +21,16 @@ export default class InternalTracker extends BaseTracker {
 
   async identify (traits = {}) {
     await this.initializationComplete
-    const { me } = this.store.state
-    traits = _.merge(extractDefaultUserTraits(me), traits)
+    const { me: user } = this.store.state
+    traits = _.merge(extractDefaultUserTraits(user), traits)
     traits.host = document.location.host
     if (me.isTeacher(true)) {
       traits.teacher = true
     } else {
       traits = _.omit(traits, 'firstName', 'lastName')
     }
-    this.trackEventInternal('Identify', {id: me.id, traits})
+    traits.deviceMemory = typeof (navigator.deviceMemory) === 'number' ? navigator.deviceMemory : undefined
+    this.trackEventInternal('Identify', { id: me.id, traits })
   }
 
   async trackPageView () {
@@ -44,7 +45,9 @@ export default class InternalTracker extends BaseTracker {
   }
 
   trackEventInternal (event, properties) {
-    if (this.disableAllTracking) return this.log('not tracking', event, 'because of disableAllTtracking')
+    if (this.disableAllTracking) {
+      return this.log('not tracking', event, 'because of disableAllTtracking')
+    }
     if (this.store.state.me.isAdmin) return this.log('not tracking', event, 'because of admin')
     // Skipping heavily logged actions we don't use internally
     if (['Simulator Result', 'Started Level Load', 'Finished Level Load', 'View Load'].indexOf(event) !== -1) return this.log('not tracking common event', event)
@@ -53,12 +56,11 @@ export default class InternalTracker extends BaseTracker {
     if (['Clicked Start Level', 'Inventory Play', 'Heard Sprite', 'Started Level', 'Saw Victory', 'Click Play', 'Choose Inventory', 'Homepage Loaded', 'Change Hero'].indexOf(event) !== -1) {
       delete properties.category
       delete properties.label
-    }
-    else if (['Clicked Start Level', 'Inventory Play', 'Heard Sprite', 'Started Level', 'Saw Victory', 'Click Play', 'Choose Inventory', 'Homepage Loaded', 'Change Hero'].indexOf(event) !== -1) {
+    } else if (['Clicked Start Level', 'Inventory Play', 'Heard Sprite', 'Started Level', 'Saw Victory', 'Click Play', 'Choose Inventory', 'Homepage Loaded', 'Change Hero'].indexOf(event) !== -1) {
       delete properties.category
     }
     this.log('tracking internal analytics event:', event, properties)
-    api.analyticsLogEvents.post({event, properties})
+    api.analyticsLogEvents.post({ event, properties })
   }
 
   trackReferrers () {
@@ -83,7 +85,7 @@ export default class InternalTracker extends BaseTracker {
 
   trackUtm () {
     const properties = { url: window.location.href }
-    for (let [param, value] of new URLSearchParams(window.location.search)) {
+    for (const [param, value] of new URLSearchParams(window.location.search)) {
       if (param.startsWith('utm_')) {
         properties[param] = value
       }

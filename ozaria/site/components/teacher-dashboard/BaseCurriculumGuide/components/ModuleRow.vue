@@ -1,58 +1,125 @@
 <script>
-  import ContentIcon from '../../common/icons/ContentIcon'
-  import { mapGetters } from 'vuex'
-  import { getGameContentDisplayType } from 'ozaria/site/common/ozariaUtils.js'
+import ContentIcon from '../../common/icons/ContentIcon'
+import { getGameContentDisplayType } from 'ozaria/site/common/ozariaUtils.js'
+import { getImageFromAiTool } from 'app/core/utils.js'
+import marked from 'marked'
 
-  export default {
-    components: {
-      ContentIcon
-    },
+const aiProjectTypes = ['ai-use', 'ai-learn']
 
-    props: {
-      iconType: {
-        type: String,
-        required: true,
-        validator: value => ['cutscene', 'cinematic', 'capstone', 'interactive', 'practicelvl', 'challengelvl'].indexOf(value) !== -1
-      },
+export default {
+  components: {
+    ContentIcon
+  },
 
-      displayName: {
-        type: String,
-        required: true
-      },
-
-      description: {
-        type: String,
-        required: false,
-        default: ''
-      },
-
-      isPartOfIntro: {
-        type: Boolean,
-        default: false
+  props: {
+    iconType: {
+      type: String,
+      required: true,
+      validator: value => {
+        return ['cutscene', 'cinematic', 'capstone', 'interactive', 'practicelvl', 'challengelvl', 'intro', 'hero', 'course-ladder', 'game-dev', 'web-dev', 'ladder', 'challenge', 'ai-use', 'ai-learn'].indexOf(value) !== -1
       }
     },
 
-    computed: {
-      ...mapGetters({
-        isOnLockedCampaign: 'baseCurriculumGuide/isOnLockedCampaign'
-      }),
+    nameType: {
+      type: String,
+      required: false,
+      default: null
+    },
 
-      moduleRowClass () {
-        return {
-          locked: this.isOnLockedCampaign,
-          'part-of-intro': this.isPartOfIntro
-        }
-      },
+    displayName: {
+      type: String,
+      required: true,
+      default: ''
+    },
 
-      getContentTypeHeader () {
-        if (this.iconType) {
-          return getGameContentDisplayType(this.iconType, true, true)
-        } else {
+    levelNumber: {
+      type: [String, Number],
+      required: false,
+      default: ''
+    },
+
+    description: {
+      type: String,
+      required: false,
+      default: ''
+    },
+
+    isPartOfIntro: {
+      type: Boolean,
+      default: false
+    },
+
+    showCodeBtn: {
+      type: Boolean,
+      default: false
+    },
+    showProgressDot: {
+      // uses in parent dashboard. do not remove
+      type: Boolean,
+      default: false
+    },
+    progressStatus: {
+      type: String,
+      default: ''
+    },
+    identifier: {
+      type: String
+    },
+    locked: {
+      type: Boolean,
+      default: false,
+    },
+    tool: {
+      type: String,
+      default: undefined,
+    },
+  },
+
+  data () {
+    return {
+      showCode: false,
+      aiProjectTypes,
+    }
+  },
+
+  computed: {
+    clearDescription () {
+      const description = marked(this.description).replace(/<[^>]*>/g, '')
+      const doc = new DOMParser().parseFromString(description, 'text/html')
+      return doc.documentElement.textContent
+    },
+
+    moduleRowClass () {
+      return {
+        locked: this.locked,
+        'part-of-intro': this.isPartOfIntro,
+        'show-progress-dot': this.showProgressDot
+      }
+    },
+
+    getContentTypeHeader () {
+      if (this.nameType || this.iconType) {
+        const type = this.nameType ? this.nameType : this.iconType
+        if (this.aiProjectTypes.includes(type)) {
           return ''
         }
+        const name = getGameContentDisplayType(type, true, true)
+        return `${name}:`
+      } else {
+        return ''
       }
     }
+  },
+  methods: {
+    aiImage (tool) {
+      return getImageFromAiTool(tool)
+    },
+    onShowCodeClicked () {
+      this.showCode = !this.showCode
+      this.$emit('showCodeClicked', { identifier: this.identifier, hideCode: !this.showCode, levelNumber: this.levelNumber })
+    }
   }
+}
 </script>
 <template>
   <div
@@ -61,9 +128,40 @@
     @click="$emit('click')"
   >
     <div>
-      <content-icon class="content-icon" :icon="iconType" />
-      <p class="content-heading"><b>{{ getContentTypeHeader }}: {{ displayName }}</b></p>
-      <p>{{ description }}</p>
+      <div
+        v-if="showProgressDot"
+        :class="{ 'progress-dot': true, 'in-progress': progressStatus === 'in-progress', 'not-started': progressStatus === 'not-started', 'complete': progressStatus === 'complete' }"
+      />
+      <content-icon
+        class="content-icon"
+        :icon="iconType"
+      />
+      <img
+        v-if="aiProjectTypes.includes(iconType)"
+        class="tool-image"
+        :src="aiImage(tool)"
+        :title="tool"
+      >
+      <p class="content-heading">
+        <b>{{ `${levelNumber ? levelNumber : '' }${levelNumber ? (nameType ? '.' : ':') : ''} ${getContentTypeHeader} ${ displayName.replace('Course: ', '')}` }}</b>
+      </p>
+      <p class="content-desc">
+        {{ clearDescription }}
+      </p>
+      <div
+        v-if="showCodeBtn"
+        class="code-view"
+        @click="onShowCodeClicked"
+      >
+        <img
+          src="/images/pages/parents/dashboard/show-code-logo.svg"
+          alt="Show Code Logo"
+          class="code-view__icon"
+        >
+        <span class="code-view__text">
+          {{ showCode ? 'Hide Code' : 'See Code' }}
+        </span>
+      </div>
     </div>
   </div>
 </template>
@@ -79,14 +177,15 @@
     height: 100%;
 
     box-sizing: border-box;
+    border: 1px solid transparent;
 
     & > div {
       display: flex;
       flex-direction: row;
       align-items: center;
 
-      padding-top: 5px;
-      padding-bottom: 5px;
+      padding-top: 4px;
+      padding-bottom: 4px;
 
       width:100%;
       height: 100%;
@@ -100,7 +199,7 @@
   }
 
   .module-row:hover:not(.locked) {
-    border: 1px solid #74C6DF;
+    border-color: #74C6DF;
   }
 
   .part-of-intro {
@@ -141,5 +240,56 @@
   .content-icon {
     width: 18px;
     height: 18px;
+    min-width: 18px;
+    min-height: 18px;
   }
+
+  .content-desc {
+    margin-right: auto;
+  }
+
+  .code-view {
+    display: flex;
+    align-items: center;
+    margin-right: 2rem;
+    cursor: pointer;
+    &__text {
+      font-weight: 600;
+      font-size: 1.4rem;
+      line-height: 1.6rem;
+      letter-spacing: 0.333333px;
+
+      color: #355EA0;
+      margin-left: .5rem;
+    }
+  }
+
+  .progress-dot {
+    width: 1rem;
+    height: 1rem;
+    background: #FFFFFF;
+    border-radius: 1rem;
+    margin-bottom: .5rem;
+  }
+  .not-started {
+    border: 1.5px solid #C8CDCC;
+  }
+
+  .in-progress {
+    background-color: #1ad0ff;
+  }
+
+  .complete {
+    background-color: #2dcd38;
+  }
+
+  .lprogress__level {
+    .show-progress-dot {
+      margin-left: 1rem;
+    }
+  }
+.tool-image {
+  width: 20px;
+  margin-right: 10px;
+}
 </style>

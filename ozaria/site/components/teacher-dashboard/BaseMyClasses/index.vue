@@ -1,135 +1,145 @@
 <script>
-  import { mapGetters, mapActions, mapMutations } from 'vuex'
-  import { COMPONENT_NAMES, PAGE_TITLES } from '../common/constants.js'
-  import ClassStatCalculator from './components/ClassStatCalculator'
-  import ModalEditClass from '../modals/ModalEditClass'
-  import ModalAddStudents from '../modals/ModalAddStudents'
-  import moment from 'moment'
-  import ModalShareWithTeachers from "../modals/ModalShareWithTeachers"
+import { mapGetters, mapActions, mapMutations } from 'vuex'
+import { COMPONENT_NAMES, PAGE_TITLES } from '../common/constants.js'
+import ClassStatCalculator from './components/ClassStatCalculator'
+import ModalEditClass from '../modals/ModalEditClass'
+import ModalAddStudents from '../modals/ModalAddStudents'
+import ModalShareWithTeachers from '../modals/ModalShareWithTeachers'
+import BannerHoC from 'app/views/courses/BannerHoC'
+import ButtonsSchoolAdmin from './ButtonsSchoolAdmin'
+import PodcastItemContainer from 'app/views/courses/PodcastItemContainer'
+import sortClassroomMixin from '../mixins/sortClassroomMixin.js'
+import clubCampMixin from '../mixins/clubCampMixin'
 
-  import BannerWebinar from './components/BannerWebinar'
+export default {
+  name: COMPONENT_NAMES.MY_CLASSES_ALL,
+  components: {
+    ClassStatCalculator,
+    ModalEditClass,
+    ButtonsSchoolAdmin,
+    BannerHoC,
+    ModalAddStudents,
+    ModalShareWithTeachers,
+    PodcastItemContainer
+  },
 
-  import ButtonsSchoolAdmin from './ButtonsSchoolAdmin'
+  mixins: [
+    sortClassroomMixin,
+    clubCampMixin,
+  ],
 
-  export default {
-    name: COMPONENT_NAMES.MY_CLASSES_ALL,
-    components: {
-      ClassStatCalculator,
-      ModalEditClass,
-      ButtonsSchoolAdmin,
-      BannerWebinar,
-      ModalAddStudents,
-      ModalShareWithTeachers,
+  props: {
+    teacherId: { // sent from DSA
+      type: String,
+      default: ''
     },
-
-    props: {
-      teacherId: { // sent from DSA
-        type: String,
-        default: ''
-      },
-      displayOnly: { // sent from DSA
-        type: Boolean,
-        default: false
-      }
-    },
-
-    data: () => {
-      return {
-        showEditClassModal: false,
-        showAddStudentsModal: false,
-        editClassroomObject: {},
-        archiveHidden: true,
-        showShareClassWithTeacherModal: false,
-        sharedHidden: true,
-      }
-    },
-
-    computed: {
-      ...mapGetters({
-        activeClassrooms: 'teacherDashboard/getActiveClassrooms',
-        archivedClassrooms: 'teacherDashboard/getArchivedClassrooms',
-        getTrackCategory: 'teacherDashboard/getTrackCategory',
-        sharedClassrooms: 'teacherDashboard/getSharedClassrooms',
-      }),
-
-      sortedActiveClasses () {
-        const classrooms = [...this.activeClassrooms]
-        classrooms.sort(this.classroomSortById)
-        return classrooms
-      },
-
-      sortedArchivedClassrooms () {
-        const classrooms = [...this.archivedClassrooms]
-        classrooms.sort(this.classroomSortById)
-        return classrooms
-      },
-      sortedSharedClassrooms () {
-        const classrooms = [...this.sharedClassrooms]
-        classrooms.sort(this.classroomSortById)
-        return classrooms
-      }
-    },
-
-    mounted () {
-      this.setTeacherId(this.teacherId || me.get('_id'))
-      this.setPageTitle(PAGE_TITLES[this.$options.name])
-      this.fetchData({ componentName: this.$options.name, options: { loadedEventName: 'All Classes: Loaded' } })
-        .then(() => {
-          if (this.sortedSharedClassrooms.length) {
-            this.sharedHidden = false
-          }
-        })
-    },
-
-    destroyed () {
-      this.resetLoadingState()
-    },
-
-    methods: {
-      ...mapActions({
-        fetchData: 'teacherDashboard/fetchData'
-      }),
-
-      ...mapMutations({
-        resetLoadingState: 'teacherDashboard/resetLoadingState',
-        setTeacherId: 'teacherDashboard/setTeacherId',
-        setPageTitle: 'teacherDashboard/setPageTitle'
-      }),
-
-      openEditModal (classroom) {
-        this.showEditClassModal = true
-        this.editClassroomObject = classroom
-      },
-
-      openAddModal (classroom) {
-        this.showAddStudentsModal = true
-        this.editClassroomObject = classroom
-      },
-
-      clickArchiveArrow () {
-        this.archiveHidden = !this.archiveHidden
-        if (!this.archiveHidden) {
-          window.tracker?.trackEvent('All Classes: Archived Classes Dropdown Opened', { category: this.getTrackCategory })
-        }
-      },
-      clickSharedArrow () {
-        this.sharedHidden = !this.sharedHidden
-      },
-      openShareClassWithTeacherModal (classroom) {
-        this.showShareClassWithTeacherModal = true
-        this.editClassroomObject = classroom
-      },
-      classroomSortById(a, b) {
-        return moment(parseInt(b._id.substring(0, 8), 16) * 1000).diff(moment(parseInt(a._id.substring(0, 8), 16) * 1000))
-      }
+    displayOnly: { // sent from DSA
+      type: Boolean,
+      default: false
     }
-  }
+  },
+
+  data: () => {
+    return {
+      showEditClassModal: false,
+      showAddStudentsModal: false,
+      editClassroomObject: {},
+      archiveHidden: true,
+      showShareClassWithTeacherModal: false,
+      sharedHidden: true
+    }
+  },
+
+  computed: {
+    ...mapGetters({
+      activeClassrooms: 'teacherDashboard/getActiveClassrooms',
+      archivedClassrooms: 'teacherDashboard/getArchivedClassrooms',
+      getTrackCategory: 'teacherDashboard/getTrackCategory',
+      sharedClassrooms: 'teacherDashboard/getSharedClassrooms'
+    }),
+
+    sortedActiveClasses () {
+      const classrooms = [...this.activeClassrooms]
+      classrooms.sort(this.classroomSortById)
+      return classrooms
+    },
+
+    sortedArchivedClassrooms () {
+      const classrooms = [...this.archivedClassrooms]
+      classrooms.sort(this.classroomSortById)
+      return classrooms
+    },
+
+    sortedSharedClassrooms () {
+      const classrooms = [...this.sharedClassrooms]
+      classrooms.sort(this.classroomSortById)
+      return classrooms
+    },
+
+    showPodcast () {
+      return !me.isCodeNinja()
+    }
+  },
+
+  mounted () {
+    this.setTeacherId(this.teacherId || me.get('_id'))
+    this.setPageTitle(PAGE_TITLES[this.$options.name])
+    this.fetchData({ componentName: this.$options.name, options: { loadedEventName: 'All Classes: Loaded' } })
+      .then(() => {
+        if (this.sortedSharedClassrooms.length) {
+          this.sharedHidden = false
+        }
+      })
+  },
+
+  destroyed () {
+    this.resetLoadingState()
+  },
+
+  methods: {
+    ...mapActions({
+      fetchData: 'teacherDashboard/fetchData'
+    }),
+
+    ...mapMutations({
+      resetLoadingState: 'teacherDashboard/resetLoadingState',
+      setTeacherId: 'teacherDashboard/setTeacherId',
+      setPageTitle: 'teacherDashboard/setPageTitle'
+    }),
+
+    openEditModal (classroom) {
+      this.showEditClassModal = true
+      this.editClassroomObject = classroom
+    },
+
+    openAddModal (classroom) {
+      this.showAddStudentsModal = true
+      this.editClassroomObject = classroom
+    },
+
+    clickArchiveArrow () {
+      this.archiveHidden = !this.archiveHidden
+      if (!this.archiveHidden) {
+        window.tracker?.trackEvent('All Classes: Archived Classes Dropdown Opened', { category: this.getTrackCategory })
+      }
+    },
+    clickSharedArrow () {
+      this.sharedHidden = !this.sharedHidden
+    },
+    openShareClassWithTeacherModal (classroom) {
+      this.showShareClassWithTeacherModal = true
+      this.editClassroomObject = classroom
+    },
+    showCreateStudents (_classroom) {
+      return false
+    },
+  },
+}
 </script>
 
 <template>
   <div>
-    <banner-webinar />
-
+    <banner-ho-c />
     <div id="class-stats-area">
       <div
         v-for="clas in sortedActiveClasses"
@@ -153,16 +163,25 @@
         />
       </div>
     </div>
-    
+
     <div id="shared-classes">
       <div class="shared-title title-tab">
         <h1>{{ $t('teacher.shared_classes') }}</h1>
-        <div class="arrow-toggle" @click="clickSharedArrow">
-          <div v-if="!sharedHidden" class="arrow-icon-up" />
-          <div v-else class="arrow-icon-down" />
+        <div
+          class="arrow-toggle"
+          @click="clickSharedArrow"
+        >
+          <div
+            v-if="!sharedHidden"
+            class="arrow-icon-up"
+          />
+          <div
+            v-else
+            class="arrow-icon-down"
+          />
         </div>
       </div>
-  
+
       <div
         v-for="clas in sortedSharedClassrooms"
         v-show="!sharedHidden"
@@ -188,9 +207,18 @@
     <div id="archived-area">
       <div class="archived-title title-tab">
         <h1>{{ $t('teacher.archived_classes') }}</h1>
-        <div class="arrow-toggle" @click="clickArchiveArrow">
-          <div v-if="!archiveHidden" class="arrow-icon-up" />
-          <div v-else class="arrow-icon-down" />
+        <div
+          class="arrow-toggle"
+          @click="clickArchiveArrow"
+        >
+          <div
+            v-if="!archiveHidden"
+            class="arrow-icon-up"
+          />
+          <div
+            v-else
+            class="arrow-icon-down"
+          />
         </div>
       </div>
 
@@ -217,11 +245,13 @@
     <modal-edit-class
       v-if="showEditClassModal"
       :classroom="editClassroomObject"
+      :as-club="isCodeNinjaClubCamp(editClassroomObject)"
       @close="showEditClassModal = false"
     />
     <modal-add-students
       v-if="showAddStudentsModal"
       :classroom="editClassroomObject"
+      :create-students="showCreateStudents(editClassroomObject)"
       @close="showAddStudentsModal = false"
     />
     <modal-share-with-teachers
@@ -229,6 +259,16 @@
       :classroom="editClassroomObject"
       @close="showShareClassWithTeacherModal = false"
     />
+
+    <div
+      v-if="showPodcast"
+      class="container latest-podcast"
+    >
+      <h5 class="text-h5">
+        {{ $t('teacher.from_the_podcast') }}
+      </h5>
+      <podcast-item-container />
+    </div>
   </div>
 </template>
 
@@ -321,5 +361,14 @@
   }
   #shared-classes {
     margin-bottom: 10px;
+  }
+
+  .latest-podcast {
+    margin-top: 60px;
+    .text-h5 {
+      text-align: right;
+      font-family: "Work Sans";
+      color: #777777;
+    }
   }
 </style>

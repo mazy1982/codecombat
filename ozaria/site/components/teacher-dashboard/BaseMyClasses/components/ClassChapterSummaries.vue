@@ -1,37 +1,112 @@
 <script>
-  import UnitProgress from './UnitProgress'
+import UnitProgress from './UnitProgress'
+import { isCodeCombat } from 'core/utils'
 
-  export default {
-    components: {
-      UnitProgress
+export default {
+  components: {
+    UnitProgress
+  },
+
+  props: {
+    chapterProgress: {
+      type: Array,
+      required: true
+    }
+  },
+
+  computed: {
+    codeCombatCourses () {
+      return this.chapterProgress.filter(chapter => !chapter.isOzCourse && !chapter.isHackstackCourse)
     },
 
-    props: {
-      chapterProgress: {
-        type: Array,
-        required: true
-      }
-    }
-  }
+    ozariaCourses () {
+      return this.chapterProgress.filter(chapter => chapter.isOzCourse)
+    },
+
+    hackstackCourses () {
+      return this.chapterProgress.filter(chapter => chapter.isHackstackCourse)
+    },
+
+    showCodeCombatRow () {
+      return isCodeCombat && this.codeCombatCourses.length > 0
+    },
+
+    showOzariaRow () {
+      return me.showOzCourses() && this.ozariaCourses.length > 0
+    },
+    showHackstackRow () {
+      return isCodeCombat && this.hackstackCourses.length > 0
+    },
+  },
+}
 </script>
 
 <template>
-  <div
-    id="class-chapter-summary"
-    class="flex-row"
-  >
+  <div>
     <div
-      id="classes"
-      class="flex-row"
+      v-if="showCodeCombatRow"
+      class="class-chapter-summary flex-row"
     >
-      <unit-progress
-        v-for="chapter in chapterProgress"
-        :key="chapter.name"
+      <img
+        class="logo"
+        alt="CodeCombat logo"
+        src="/images/pages/base/logo_square_250.png"
+      >
+      <div
+        class="classes flex-row"
+      >
+        <unit-progress
+          v-for="chapter in codeCombatCourses"
+          :key="chapter.name"
+          :name="chapter.name"
+          :is-assigned="chapter.assigned"
+          :completion-percentage="chapter.progress"
+        />
+      </div>
+    </div>
 
-        :name="chapter.name"
-        :is-assigned="chapter.assigned"
-        :completion-percentage="chapter.progress"
-      />
+    <div
+      v-if="showOzariaRow"
+      class="class-chapter-summary flex-row"
+    >
+      <img
+        class="logo"
+        alt="Ozaria logo"
+        src="/images/ozaria/home/ozaria-logo.png"
+      >
+      <div
+        class="classes flex-row"
+      >
+        <unit-progress
+          v-for="chapter in ozariaCourses"
+          :key="chapter.name"
+          :name="chapter.name"
+          :is-assigned="chapter.assigned"
+          :completion-percentage="chapter.progress"
+        />
+      </div>
+    </div>
+
+    <div
+      v-if="showHackstackRow"
+      class="class-chapter-summary flex-row"
+    >
+      <img
+        class="logo"
+        alt="Hackstack logo"
+        src="/images/pages/hackstack/ai-hs-icon.webp"
+      >
+      <div
+        class="classes flex-row"
+      >
+        <unit-progress
+          v-for="chapter in hackstackCourses"
+          :key="chapter.name"
+          :name="chapter.name"
+          :is-assigned="chapter.assigned"
+          :completion-percentage="chapter.progress"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -43,16 +118,24 @@
     align-items: center;
   }
 
-  #classes {
+  .logo {
+    height: 50px;
+    margin-left: 15px;
+  }
+
+  .classes {
     flex-wrap: wrap;
     height: 100%;
     padding: 10px;
   }
 
-  #class-chapter-summary {
+  .class-chapter-summary {
     background-color: #f2f2f2;
     border: 1px solid #d8d8d8;
+    justify-content: start;
 
-    justify-content: space-between;
+    &:last-child {
+      margin-bottom: 0;
+    }
   }
 </style>

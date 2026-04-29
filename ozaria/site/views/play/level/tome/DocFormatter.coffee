@@ -1,5 +1,4 @@
 popoverTemplate = require 'ozaria/site/templates/play/level/tome/spell_palette_entry_popover'
-{downTheChain} = require 'lib/world/world_utils'
 window.Vector = require 'lib/world/vector'  # So we can document it
 utils = require 'core/utils'
 
@@ -54,10 +53,10 @@ module.exports = class DocFormatter
     else
       @doc.owner ?= 'this'
       ownerName = if @doc.owner isnt 'this' then @doc.owner else switch @options.language
-        when 'python', 'lua' then (if @options.useHero then 'hero' else 'self')
+        when 'python', 'lua' then 'hero'
         when 'java' then 'hero'
         when 'coffeescript' then '@'
-        else (if @options.useHero then 'hero' else 'this')
+        else 'hero'
       ownerName = 'game' if @options.level.isType('game-dev')
       @doc.ownerName = ownerName
       if @doc.type is 'function'
@@ -139,19 +138,20 @@ module.exports = class DocFormatter
         obj[prop] = @replaceSpriteName obj[prop]  # Do this before using the template, otherwise marked might get us first.
 
     # Temporary hack to replace self|this with hero until we can update the docs
-    if @options.useHero
-      thisToken =
-        'python': /self/g,
-        'javascript': /this/g,
-        'lua': /self/g
+    thisToken =
+      'python': /self/g,
+      'javascript': /this/g,
+      'java': /this/g,
+      'cpp': /this/g,
+      'lua': /self/g
 
-      if thisToken[@options.language]
-        if @doc.example
-          @doc.example = @doc.example.replace thisToken[@options.language], 'hero'
-        if @doc.snippets?[@options.language]?.code
-          @doc.snippets[@options.language].code.replace thisToken[@options.language], 'hero'
-        if @doc.args
-          arg.example = arg.example.replace thisToken[@options.language], 'hero' for arg in @doc.args when arg.example
+    if thisToken[@options.language]
+      if @doc.example
+        @doc.example = @doc.example.replace thisToken[@options.language], 'hero'
+      if @doc.snippets?[@options.language]?.code
+        @doc.snippets[@options.language].code.replace thisToken[@options.language], 'hero'
+      if @doc.args
+        arg.example = arg.example.replace thisToken[@options.language], 'hero' for arg in @doc.args when arg.example
 
     if @doc.shortName is 'loop' and @options.level.isType('course', 'course-ladder')
       @replaceSimpleLoops()
@@ -183,14 +183,13 @@ module.exports = class DocFormatter
       marked: marked
       argumentExamples: argumentExamples
       writable: @options.writable
-      selectedMethod: @options.selectedMethod
       cooldowns: @inferCooldowns()
       item: @options.item
       _: _
     }
     owner = if @doc.owner is 'this' then @options.thang else window[@doc.owner]
     content = @replaceSpriteName content
-    content = content.replace /\#\{(.*?)\}/g, (s, properties) => @formatValue downTheChain(owner, properties.split('.'))
+    content = content.replace /\#\{(.*?)\}/g, (s, properties) => @formatValue utils.downTheChain(owner, properties.split('.'))
     content = content.replace /{([a-z]+)}([^]*?){\/\1}/g, (s, language, text) =>
       if language is @options.language then return text
       return ''

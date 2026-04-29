@@ -1,62 +1,169 @@
 <script>
-  import Dropdown from '../common/Dropdown'
-  import PrimaryButton from '../common/buttons/PrimaryButton'
-  import IconButtonWithText from '../common/buttons/IconButtonWithText'
+import Dropdown from '../common/Dropdown'
+import PrimaryButton from '../common/buttons/PrimaryButton'
+import IconButtonWithText from '../common/buttons/IconButtonWithText'
+import LockOrSkip from './table/LockOrSkip'
 
-  import { mapActions } from 'vuex'
+import studentProgressCalculator from 'lib/studentProgressCalculator'
 
-  export default {
-    components: {
-      'dropdown': Dropdown,
-      'primary-button': PrimaryButton,
-      'icon-button-with-text': IconButtonWithText
+import { mapActions, mapGetters } from 'vuex'
+import storage from '../../../../../app/core/storage'
+
+const Classroom = require('models/Classroom')
+const Users = require('collections/Users')
+const CourseInstances = require('collections/CourseInstances')
+const Courses = require('collections/Courses')
+const Levels = require('collections/Levels')
+const Classrooms = require('collections/Classrooms')
+const helper = require('lib/coursesHelper')
+const LevelSessions = require('collections/LevelSessions')
+
+export default {
+  components: {
+    dropdown: Dropdown,
+    'primary-button': PrimaryButton,
+    'icon-button-with-text': IconButtonWithText,
+    'lock-or-skip': LockOrSkip,
+  },
+  props: {
+    arrowVisible: {
+      type: Boolean,
+      default: false,
     },
-    props: {
-      arrowVisible: {
-        type: Boolean,
-        default: false
-      },
-      displayOnly: {
-        type: Boolean,
-        default: false
-      }
+    displayOnly: {
+      type: Boolean,
+      default: false,
     },
-    methods: {
-      ...mapActions({
-        applyLicenses: 'baseSingleClass/applyLicenses',
-        revokeLicenses: 'baseSingleClass/revokeLicenses'
-      }),
-
-      clickArrow () {
-        if (this.arrowVisible) {
-          this.$emit('click-arrow')
-        }
-      },
-
-      changeSortBy (event) {
-        // Will emit one of:
-        // 'Name'
-        // 'Progress'
-        // 'Progress (reversed)'
-        this.$emit('change-sort-by', event.target.value)
-      }
+  },
+  data () {
+    return {
+      lockOrSkipShown: false,
+      exportingProgress: false,
     }
-  }
+  },
+  computed: {
+    ...mapGetters({
+      selectedStudentIds: 'baseSingleClass/selectedStudentIds',
+      selectedOriginals: 'baseSingleClass/selectedOriginals',
+      classroom: 'teacherDashboard/getCurrentClassroom',
+      // sortedCourses: 'courses/sorted',
+      classroomMembers: 'teacherDashboard/getMembersCurrentClassroom',
+      classroomCourses: 'teacherDashboard/getCoursesCurrentClassroom',
+      getCourseInstancesOfClass: 'courseInstances/getCourseInstancesOfClass',
+      getLevelsForClassroom: 'levels/getLevelsForClassroom',
+      getSessionsForClassroom: 'levelSessions/getSessionsForClassroom',
+      getLastFetchedMemberSessionsDate: 'levelSessions/getLastFetchedMemberSessionsDate',
+      getLoading: 'teacherDashboard/getLoadingState',
+    }),
+
+    showLicenses () {
+      return !me.isCodeNinja()
+    },
+
+    sortBy () {
+      return storage.load('sortMethod') || 'Last Name'
+    },
+
+    me () {
+      return window.me
+    },
+
+    lastFetchedDate () {
+      const date = this.getLastFetchedMemberSessionsDate(this.classroom?._id)
+      if (!date) return null
+      return new Date(date).toLocaleString()
+    },
+  },
+  methods: {
+    ...mapActions({
+      revokeLicenses: 'baseSingleClass/revokeLicenses',
+      resetProgress: 'baseSingleClass/resetProgress',
+    }),
+
+    clickArrow () {
+      if (this.arrowVisible) {
+        this.$emit('click-arrow')
+      }
+    },
+
+    changeSortBy (event) {
+      // Will emit one of:
+      // 'Name'
+      // 'Progress'
+      // 'Progress (reversed)'
+      this.$emit('change-sort-by', event.target.value)
+    },
+    async exportProgress () {
+      this.exportingProgress = true
+      const classroom = new Classroom(this.classroom)
+      const sortedCourses = classroom.getSortedCourses()
+      const students = new Users(this.classroomMembers)
+      const courses = new Courses()
+      courses.fetch()
+      await courses.wait('sync')
+      const courseInstances = new CourseInstances(this.getCourseInstancesOfClass(classroom.get('_id')))
+      const levels = new Levels()
+      levels.fetchForClassroom(classroom.get('_id'), { data: { project: 'original,name,primaryConcepts,concepts,primerLanguage,practice,shareable,i18n,assessment,assessmentPlacement,slug,goals' } })
+      await levels.wait('sync')
+
+      const classroomsStub = new Classrooms([classroom])
+
+      const levelSessions = new LevelSessions(this.getSessionsForClassroom(classroom.get('_id')))
+      classroom.sessions = levelSessions
+
+      const progressData = helper.calculateAllProgress(classroomsStub, courses, courseInstances, students)
+
+      studentProgressCalculator.exportStudentProgress({
+        classroom, sortedCourses, students, courses, courseInstances, levels, progressData,
+      })
+      this.exportingProgress = false
+    },
+    onRefresh () {
+      this.$emit('refresh')
+    },
+  },
+}
 </script>
 
 <template>
   <div class="view-and-manage">
-    <div class="title-card">
-      <span>{{ $t('teacher_dashboard.view_options') }}</span>
-    </div>
     <div class="spacer align-section-left">
       <dropdown
         :label-text="$t('teacher.sort_by')"
         class="dropdowns"
         :options="['Last Name', 'First Name', 'Progress (High to Low)', 'Progress (Low to High)']"
-
+        :display-options="[$t('teacher_dashboard.sort_by_last_name'),
+                           $t('teacher_dashboard.sort_by_first_name'),
+                           $t('teacher_dashboard.sort_by_progress_desc'),
+                           $t('teacher_dashboard.sort_by_progress_asc'),
+        ]"
+        :value="sortBy"
         @change="changeSortBy"
       />
+      <v-popover
+        popover-class="teacher-dashboard-tooltip lighter-p"
+        trigger="hover focus"
+        placement="bottom"
+      >
+        <icon-button-with-text
+          class="icon-with-text larger-icon"
+          :inactive="getLoading"
+          :spinning="getLoading"
+          :icon-name="'IconReload'"
+          :text="$t('teacher_dashboard.refresh_progress')"
+          @click="onRefresh"
+        />
+        <template slot="popover">
+          <div class="refresh-tooltip">
+            <div v-if="lastFetchedDate">
+              {{ $t('teacher_dashboard.progress_last_fetched') }}: {{ lastFetchedDate }}
+            </div>
+            <div class="propagation-note">
+              {{ $t('teacher_dashboard.refresh_progress_helptext') }}
+            </div>
+          </div>
+        </template>
+      </v-popover>
       <!-- TODO - enable and use jQuery to scroll. -->
       <!-- TODO - use the store to send the signal. -->
       <!-- <dropdown label-text="Go To" class="dropdowns" /> -->
@@ -64,7 +171,7 @@
     <div class="title-card">
       <span style="width: 59px">{{ $t('teacher_dashboard.manage_class') }}</span>
     </div>
-    <div class="spacer">
+    <div class="spacer align-to-left">
       <div class="manage-container">
         <primary-button
           class="primary-btn"
@@ -74,11 +181,20 @@
           {{ $t('teacher_dashboard.assign_content') }}
         </primary-button>
         <icon-button-with-text
-          class="icon-with-text"
-          :icon-name="displayOnly ? 'IconAddStudents_Gray' : 'IconAddStudents'"
-          :text="$t('courses.add_students')"
+          v-if="showLicenses"
+          class="icon-with-text larger-icon"
+          :icon-name="displayOnly ? 'IconLicenseApply_Gray' : 'IconLicenseApply'"
+          :text="$t('teacher.apply_licenses')"
           :inactive="displayOnly"
-          @click="$emit('addStudents')"
+          @click="$emit('applyLicenses')"
+        />
+        <icon-button-with-text
+          v-if="showLicenses"
+          class="icon-with-text larger-icon"
+          :icon-name="displayOnly ? 'IconLicenseRevoke_Gray' : 'IconLicenseRevoke'"
+          :text="$t('teacher_dashboard.revoke_licenses')"
+          :inactive="displayOnly"
+          @click="revokeLicenses"
         />
         <icon-button-with-text
           class="icon-with-text"
@@ -87,25 +203,55 @@
           :inactive="displayOnly"
           @click="$emit('removeStudents')"
         />
+
+        <v-popover
+          popover-class="teacher-dashboard-tooltip lighter-p lock-tooltip"
+          trigger="click"
+          placement="left"
+          @show="lockOrSkipShown=true"
+          @hide="lockOrSkipShown=false"
+        >
+          <!-- Triggers the tooltip -->
+          <icon-button-with-text
+            class="icon-with-text"
+            icon-name="IconLock"
+            :text="$t('teacher_dashboard.lock_or_skip_levels')"
+          />
+          <!-- The tooltip -->
+          <template slot="popover">
+            <lock-or-skip
+              :shown="lockOrSkipShown"
+            />
+          </template>
+        </v-popover>
+
         <icon-button-with-text
+          v-if="!me.showChinaResourceInfo()"
           class="icon-with-text larger-icon"
-          :icon-name="displayOnly ? 'IconLicenseApply_Gray' : 'IconLicenseApply'"
-          :text="$t('teacher.apply_licenses')"
+          :icon-name="'IconReset'"
+          :text="$t('teacher_dashboard.reset_progress')"
           :inactive="displayOnly"
-          @click="applyLicenses"
+          @click="resetProgress"
         />
+
         <icon-button-with-text
           class="icon-with-text larger-icon"
-          :icon-name="displayOnly ? 'IconLicenseRevoke_Gray' : 'IconLicenseRevoke'"
-          :text="$t('teacher_dashboard.revoke_licenses')"
-          :inactive="displayOnly"
-          @click="revokeLicenses"
+          :icon-name="'IconArchive'"
+          :text="$t('teacher_dashboard.export_progress')"
+          :inactive="exportingProgress"
+          @click="exportProgress"
         />
       </div>
     </div>
-    <div :class="[arrowVisible ? 'arrow-toggle' : 'arrow-disabled']" @click="clickArrow">
+    <div
+      :class="[arrowVisible ? 'arrow-toggle' : 'arrow-disabled']"
+      @click="clickArrow"
+    >
       <transition name="arrow-fade">
-        <div v-show="arrowVisible" class="arrow-icon"></div>
+        <div
+          v-show="arrowVisible"
+          class="arrow-icon"
+        />
       </transition>
     </div>
   </div>
@@ -126,7 +272,7 @@
   .view-and-manage {
     height: 50px;
     max-height: 50px;
-    min-width: 1260px;
+    min-width: 1200px;
 
     display: flex;
     flex-direction: row;
@@ -146,7 +292,6 @@
 
     display: flex;
     flex-direction: row;
-    justify-content: space-around;
     align-items: center;
   }
 
@@ -159,12 +304,16 @@
     justify-content: space-between;
   }
 
+  .align-to-left {
+    margin-left: 5px;
+  }
+
   .align-section-left {
     /* Ensure the first section is half the size. */
     flex: 0.5 0.5 0px;
     justify-content: flex-start;
     justify-content: start;
-    min-width: 396px;
+    min-width: 300px;
   }
 
   .arrow-icon {
@@ -216,7 +365,7 @@
   }
 
   .dropdowns {
-    margin: 0 8px 0 30px;
+    margin: 0 8px 0 10px;
   }
 
   .primary-btn {
@@ -225,7 +374,17 @@
 
   .icon-with-text {
     width: 96px;
-    margin: 9px;
+    margin: 5px;
+  }
+
+  .refresh-tooltip {
+    max-width: 220px;
+    font-size: 12px;
+
+    .propagation-note {
+      margin-top: 4px;
+      color: #999;
+    }
   }
 
   .arrow-fade-enter-active {

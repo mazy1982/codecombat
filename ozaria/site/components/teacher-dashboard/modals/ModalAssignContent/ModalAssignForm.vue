@@ -1,85 +1,86 @@
 <script>
-  import { mapGetters, mapActions } from 'vuex'
-  import SecondaryButton from '../../common/buttons/SecondaryButton'
-  import TertiaryButton from '../../common/buttons/TertiaryButton'
+import { mapGetters, mapActions } from 'vuex'
+import SecondaryButton from '../../common/buttons/SecondaryButton'
+import TertiaryButton from '../../common/buttons/TertiaryButton'
+import utils from 'core/utils'
 
-  import utils from 'app/core/utils'
-  import { hasSharedWriteAccessPermission } from '../../../../../../app/lib/classroom-utils'
+import { hasSharedWriteAccessPermission } from '../../../../../../app/lib/classroom-utils'
 
-  export default {
-    components: {
-      SecondaryButton,
-      TertiaryButton
-    },
+export default {
+  components: {
+    SecondaryButton,
+    TertiaryButton,
+  },
 
-    data: () => ({
-      latestReleasedCourses: [],
-      selected: '',
-      coursesModel: undefined
+  data: () => ({
+    latestReleasedCourses: [],
+    selected: '',
+    coursesModel: undefined,
+    groupedCourses: [],
+  }),
+
+  computed: {
+    ...mapGetters({
+      loading: 'teacherDashboard/getLoadingState',
+      classroom: 'teacherDashboard/getCurrentClassroom',
+      classroomCourses: 'teacherDashboard/getCoursesCurrentClassroom',
+      classroomMembers: 'teacherDashboard/getMembersCurrentClassroom',
+      selectedStudentIds: 'baseSingleClass/selectedStudentIds',
+      courses: 'courses/sorted',
     }),
+  },
 
-    computed: {
-      ...mapGetters({
-        loading: 'teacherDashboard/getLoadingState',
-        classroom: 'teacherDashboard/getCurrentClassroom',
-        classroomCourses: 'teacherDashboard/getCoursesCurrentClassroom',
-        classroomMembers: 'teacherDashboard/getMembersCurrentClassroom',
-        selectedStudentIds: 'baseSingleClass/selectedStudentIds',
-        courses: 'courses/sorted'
-      }),
-
-      filteredCourses () {
-        return this.courses.filter(({ campaignID }) => !utils.freeCampaignIds.includes(campaignID))
-      }
-    },
-
-    created () {
-      if (!Array.isArray(this.selectedStudentIds) || this.selectedStudentIds.length === 0) {
-        noty({ text: `You need to select student(s) first before performing that action.`, layout: 'center', type: 'information', killer: true, timeout: 8000 })
-        this.$emit('close')
-      }
-    },
-
-    methods: {
-      ...mapActions({
-        assignCourse: 'courseInstances/assignCourse',
-        removeCourse: 'courseInstances/removeCourse',
-        fetchData: 'baseSingleClass/fetchData'
-      }),
-
-      async handleClickedAssign () {
-        if (!this.selected) {
-          return
-        }
-        const course = this.courses.find((v) => v.name === this.selected)
-
-        const sharedClassroomId = hasSharedWriteAccessPermission(this.classroom) ? this.classroom._id : null
-        await this.assignCourse({
-          classroom: this.classroom,
-          course,
-          members: this.selectedStudentIds.map(id => this.classroomMembers.find(({ _id }) => id === _id)),
-          sharedClassroomId
-        })
-        if (this.classroomCourses.find((c) => c._id === course._id)) {
-          this.fetchData()
-        } else {
-          this.fetchData({ forceGameContentFetch: true }) // new course that didnt exist when classroom was created
-        }
-        this.$emit('close')
-      },
-
-      async handleClickedUnassign () {
-        if (!this.selected) {
-          return
-        }
-        const course = this.courses.find((v) => v.name === this.selected)
-
-        await this.removeCourse({ course, members: this.selectedStudentIds, classroom: this.classroom })
-        this.fetchData()
-        this.$emit('close')
-      }
+  created () {
+    if (!Array.isArray(this.selectedStudentIds) || this.selectedStudentIds.length === 0) {
+      noty({ text: $.i18n.t('teacher_dashboard.select_student_first'), layout: 'center', type: 'information', killer: true, timeout: 8000 })
+      this.$emit('close')
     }
-  }
+    this.groupedCourses = utils.groupedCoursesList(this.courses)
+  },
+
+  methods: {
+    ...mapActions({
+      assignCourse: 'courseInstances/assignCourse',
+      removeCourse: 'courseInstances/removeCourse',
+      fetchData: 'baseSingleClass/fetchData',
+    }),
+    async handleClickedAssign () {
+      if (!this.selected) {
+        return
+      }
+      const course = this.courses.find((v) => v.name === this.selected)
+
+      const sharedClassroomId = hasSharedWriteAccessPermission(this.classroom) ? this.classroom._id : null
+      await this.assignCourse({
+        classroom: this.classroom,
+        course,
+        members: this.selectedStudentIds.map(id => this.classroomMembers.find(({ _id }) => id === _id)),
+        sharedClassroomId,
+      })
+      if (this.classroomCourses.find((c) => c._id === course._id)) {
+        this.fetchData()
+      } else {
+        this.fetchData({ forceGameContentFetch: true }) // new course that didnt exist when classroom was created
+      }
+      this.$emit('close')
+    },
+
+    async handleClickedUnassign () {
+      if (!this.selected) {
+        return
+      }
+      const course = this.courses.find((v) => v.name === this.selected)
+
+      await this.removeCourse({ course, members: this.selectedStudentIds, classroom: this.classroom })
+      this.fetchData()
+      this.$emit('close')
+    },
+
+    i18nName (course) {
+      return utils.i18n(course, 'name')
+    },
+  },
+}
 </script>
 
 <template>
@@ -94,9 +95,10 @@
         <div class="col-xs-12">
           <span class="control-label">{{ $t('teacher_dashboard.select_chapter') }}</span>
           <select
+            id="course-select"
+            v-model="selected"
             class="form-control"
             name="courseList"
-            v-model="selected"
           >
             <option
               disabled
@@ -106,18 +108,14 @@
               {{ $t("teacher_dashboard.choose_course") }}
             </option>
             <option
-              v-for="course in filteredCourses"
+              v-for="course in groupedCourses"
               :key="course._id"
               :value="course.name"
+              :disabled="course.disabled"
             >
-              {{ course.name }}
+              {{ i18nName(course) }}
             </option>
           </select>
-          <span
-            class="form-error"
-          >
-            {{ $t("form_validation_errors.required") }}
-          </span>
         </div>
       </div>
       <div class="form-group row buttons-container">
@@ -159,5 +157,15 @@
     @include font-p-3-small-button-text-dusk-dark;
     font-size: 14px;
     letter-spacing: 0.333px;
+  }
+
+  #course-select {
+    option {
+      color: black;
+
+      &:disabled {
+        color: grey;
+      }
+    }
   }
 </style>

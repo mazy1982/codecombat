@@ -1,72 +1,232 @@
 <script>
-  import { mapState } from 'vuex'
+import { mapState, mapGetters } from 'vuex'
+import utils from 'core/utils'
+import DashboardToggle from 'ozaria/site/components/teacher-dashboard/common/DashboardToggle'
+import GradeFilterComponent from 'ozaria/site/components/teacher-dashboard/common/GradeFilterComponent.vue'
+import sortClassroomMixin from '../mixins/sortClassroomMixin.js'
+import ModalTestStudentPromotion from 'ozaria/site/components/teacher-dashboard/modals/ModalTestStudentPromotion.vue'
+import ModalEndOfTrial from 'ozaria/site/components/teacher-dashboard/modals/ModalEndOfTrial.vue'
+import ModalCurriculumPromotion from 'ozaria/site/components/teacher-dashboard/modals/ModalCurriculumPromotion.vue'
+import ModalOzariaHackStack from 'ozaria/site/components/teacher-dashboard/modals/ModalOzariaHackStack'
+import ModalOzariaAILeague from 'ozaria/site/components/teacher-dashboard/modals/ModalOzariaAILeague'
+import ModalAIAlgebraPromotion from 'ozaria/site/components/teacher-dashboard/modals/ModalAIAlgebraPromotion'
+import IconAssessments from 'ozaria/site/components/teacher-dashboard/common/NavIconAssessments'
+import IconBeta from 'app/core/components/IconBeta'
+import IconNew from 'app/core/components/IconNew'
+const K5 = 'K-5'
+const K6 = '6-8'
+const K9 = '9-12'
+const GRADE_BANDS = [K5, K6, K9]
 
-  export default {
-    props: {
-      classrooms: {
-        type: Array,
-        default: () => []
-      }
+export default {
+  components: {
+    DashboardToggle,
+    ModalTestStudentPromotion,
+    ModalCurriculumPromotion,
+    ModalOzariaHackStack,
+    ModalOzariaAILeague,
+    ModalAIAlgebraPromotion,
+    ModalEndOfTrial,
+    IconAssessments,
+    GradeFilterComponent,
+    IconBeta,
+    IconNew,
+  },
+
+  mixins: [
+    sortClassroomMixin,
+  ],
+
+  props: {
+    classrooms: {
+      type: Array,
+      default: () => [],
     },
+  },
 
-    computed: {
-      ...mapState('teacherDashboard', {
-        currentSelectedClassroom: state => state.classroomId
-      }),
-
-      classesTabSelected () {
-        return this.$route.path.startsWith('/teachers/classes') || this.$route.path === '/teachers'
-      },
-
-      studentProjectsSelected () {
-        return this.$route.path.startsWith('/teachers/projects')
-      },
-
-      licensesSelected () {
-        return this.$route.path.startsWith('/teachers/licenses')
-      },
-
-      resourceHubSelected () {
-        return this.$route.path.startsWith('/teachers/resources')
-      },
-
-      pdSelected () {
-        return this.$route.path.startsWith('/teachers/professional-development')
-      },
-
-      // Check for the "All Classes" dropdown menu button in the classesTab.
-      allClassesSelected () {
-        return this.$route.path === '/teachers' || this.$route.path === '/teachers/classes'
-      },
-
-      classroomSelected () {
-        if (this.allClassesSelected) {
-          return undefined
-        }
-        return this.currentSelectedClassroom
-      }
-    },
-
-    methods: {
-      trackEvent (e) {
-        const eventName = e.target.dataset['action']
-        const eventLabel = e.target.dataset['label']
-        if (eventName) {
-          if (eventLabel) {
-            window.tracker?.trackEvent(eventName, { category: 'Teachers', label: eventLabel })
-          } else {
-            window.tracker?.trackEvent(eventName, { category: 'Teachers' })
-          }
-        }
-      }
+  data: () => {
+    let guideOptions
+    let ozLink = {
+      path: utils.ozBaseURL(),
+      type: 'a',
     }
-  }
+    if (utils.isCodeCombat) {
+      if (me.showOzCourses()) {
+        ozLink = {
+          path: '/teachers/guide/ozaria',
+          isNew: true,
+        }
+      }
+      guideOptions = [
+        { id: 'junior', name: $.i18n.t('nav.coco_junior'), path: '/teachers/guide/junior', gradeBands: [K5, K6] },
+        { id: 'codecombat', name: $.i18n.t('new_home.codecombat'), path: '/teachers/guide/codecombat', gradeBands: [K6, K9] },
+        { id: 'ozaria', name: $.i18n.t('new_home.ozaria'), ...ozLink, gradeBands: [K6, K9] },
+        { id: 'roblox', name: $.i18n.t('nav.ccw_short'), path: '/roblox', type: 'a', gradeBands: [K5, K6, K9], beta: true },
+        { id: 'hackstack', name: $.i18n.t('nav.ai_hackstack'), path: '/teachers/guide/hackstack', gradeBands: [K6, K9] },
+        { id: 'aileague', name: $.i18n.t('nav.ai_league_esports'), path: '/teachers/ai-league', gradeBands: [K6, K9] },
+        { id: 'ap', name: $.i18n.t('nav.ap_csp'), path: '/teachers/apcsp', gradeBands: [K9] },
+      ]
+    } else {
+      guideOptions = [
+        { id: 'ozaria', name: $.i18n.t('new_home.ozaria'), path: '/teachers/guide/ozaria', gradeBands: [K6, K9] },
+      ]
+    }
+
+    const toolOptions = [
+      { id: 'toolkit', name: $.i18n.t('nav.teacher_toolkit'), path: '/teachers/resources' },
+      { id: 'pd', name: $.i18n.t('nav.professional_development'), path: '/teachers/professional-development' },
+      { id: 'ai-tool', name: $.i18n.t('nav.ai_teacher_tool'), path: (utils.cocoBaseURL() + '/ai/play'), type: 'a' },
+    ]
+    return {
+      curriculumPromoClicked: false,
+      guideOptions,
+      toolOptions,
+      gradeBand: '',
+    }
+  },
+
+  computed: {
+    ...mapState('teacherDashboard', {
+      currentSelectedClassroom: state => state.classroomId,
+    }),
+
+    ...mapGetters({
+      topModal: 'modals/getTopModal',
+    }),
+
+    isCodeCombat () {
+      return utils.isCodeCombat
+    },
+
+    isOzaria () {
+      return utils.isOzaria
+    },
+
+    ozariaBaseURL () {
+      return utils.ozBaseURL()
+    },
+
+    classesTabSelected () {
+      return this.$route.path.startsWith('/teachers/classes') || this.$route.path === '/teachers'
+    },
+
+    // Check for the "All Classes" dropdown menu button in the classesTab.
+    allClassesSelected () {
+      return this.$route.path === '/teachers' || this.$route.path === '/teachers/classes'
+    },
+
+    classroomSelected () {
+      if (this.allClassesSelected) {
+        return undefined
+      }
+      return this.currentSelectedClassroom
+    },
+
+    showStudentProjects () {
+      // TODO: do show the student projects if it is Code Ninjas, but not in a camp context
+      if (utils.isCodeCombat) {
+        return false
+      }
+      return true
+    },
+
+    showHackStack () {
+      return !me.showChinaResourceInfo()
+    },
+
+    showPD () {
+      return !me.isCodeNinja() && !me.showChinaResourceInfo()
+    },
+
+    showLicenses () {
+      return !me.isCodeNinja()
+    },
+
+    showAssessments () {
+      // TODO: do show the assessments if it is CodeNinjas, but not in a camp context
+      return utils.isCodeCombat && !me.isCodeNinja()
+    },
+
+    sortedClasses () {
+      const classrooms = [...this.classrooms]
+      classrooms.sort(this.classroomSortById)
+      return classrooms
+    },
+
+    isCurriculumModalVisible () {
+      return this.topModal?.name === 'curriculum-sidebar-promotion-modal'
+    },
+
+    isGuideTabSelected () {
+      return this.guideOptions.some((r) => r.type !== 'a' && this.isCurrentRoute(r.path))
+    },
+
+    isToolTabSelected () {
+      return this.toolOptions.some((r) => r.type !== 'a' && this.isCurrentRoute(r.path))
+    },
+    visibleToolOptions () {
+      return this.toolOptions.filter((o) => o.id !== 'pd' || this.showPD)
+    },
+    gradeBandOptions () {
+      if (this.isCodeCombat) {
+        return GRADE_BANDS
+      }
+      return []
+    },
+  },
+
+  methods: {
+    isCurrentRoute (route) {
+      return this.$route.path.startsWith(route)
+    },
+
+    onSelectGradeBand (band) {
+      this.gradeBand = band
+    },
+
+    isHighlightedOption (option) {
+      if (!this.gradeBand) { return false }
+      return option.gradeBands.includes(this.gradeBand)
+    },
+
+    onCurriculumClicked (e) {
+      this.$refs.modalCurriculumPromotion.close()
+      this.trackEvent(e)
+    },
+
+    trackEvent (e) {
+      const eventName = e.target.dataset.action
+      const eventLabel = e.target.dataset.label
+      if (eventName) {
+        if (eventLabel) {
+          window.tracker?.trackEvent(eventName, { category: 'Teachers', label: eventLabel })
+        } else {
+          window.tracker?.trackEvent(eventName, { category: 'Teachers' })
+        }
+      }
+    },
+    AILeagueClicked () {
+      if (utils.isOzaria) {
+        window.open('https://codecombat.com/teachers/ai-league', '_blank')
+      }
+    },
+
+    AIHSClicked (e) {
+      this.trackEvent(e)
+      let route = '/ai/play'
+      if (utils.isOzaria) {
+        route = utils.cocoBaseURL() + '/hackstack'
+      }
+      return window.open(route, '_blank')
+    },
+  },
+}
+
 </script>
 
 <template>
   <ul
-    id="secondaryNav"
-    class="nav"
+    class="nav secondaryNav"
     role="navigation"
   >
     <li
@@ -75,7 +235,7 @@
     >
       <a
         id="ClassesDropdown"
-        :class="['dropdown-toggle', classesTabSelected ? 'current-route': '']"
+        :class="['dropdown-toggle', classesTabSelected ? 'current-route' : '']"
         href="#"
         role="button"
         data-toggle="dropdown"
@@ -90,36 +250,46 @@
         class="dropdown-menu"
         aria-labelledby="ClassesDropdown"
       >
-        <li :class="allClassesSelected ? 'selected': null">
-          <router-link tag="a" to="/teachers" class="dropdown-item underline-item" @click.native="trackEvent" data-action="All Classes: Nav Clicked">
+        <li :class="allClassesSelected ? 'selected' : null">
+          <router-link
+            tag="a"
+            to="/teachers"
+            class="dropdown-item underline-item"
+            data-action="All Classes: Nav Clicked"
+            data-toggle="dropdown"
+            @click.native="trackEvent"
+          >
             {{ $t('teacher_dashboard.all_classes') }}
           </router-link>
         </li>
         <li
-          v-for="classroom in classrooms"
+          v-for="classroom in sortedClasses"
           :key="classroom._id"
-          :class="classesTabSelected && classroomSelected === classroom._id ? 'selected': null"
+          :class="classesTabSelected && classroomSelected === classroom._id ? 'selected' : null"
         >
           <router-link
             tag="a"
             :to="`/teachers/classes/${classroom._id}`"
             class="dropdown-item"
-            @click.native="trackEvent"
             data-action="Track Progress: Nav Clicked"
+            data-toggle="dropdown"
             :data-label="$route.path"
+            @click.native="trackEvent"
           >
             {{ classroom.name }}
           </router-link>
         </li>
       </ul>
     </li>
+
     <li
+      v-if="showStudentProjects"
       role="presentation"
       class="dropdown"
     >
       <a
         id="ProjectsDropdown"
-        :class="['dropdown-toggle', studentProjectsSelected ? 'current-route': '']"
+        :class="['dropdown-toggle', isCurrentRoute('/teachers/projects') ? 'current-route' : '']"
         href="#"
         role="button"
         data-toggle="dropdown"
@@ -136,15 +306,16 @@
         aria-labelledby="ProjectsDropdown"
       >
         <li
-          v-for="classroom in classrooms"
+          v-for="classroom in sortedClasses"
           :key="classroom._id"
-          :class="classroomSelected === classroom._id && studentProjectsSelected ? 'selected': null"
+          :class="classroomSelected === classroom._id && isCurrentRoute('/teachers/projects') ? 'selected' : null"
         >
           <router-link
             :to="`/teachers/projects/${classroom._id}`"
             class="dropdown-item"
-            @click.native="trackEvent"
             data-action="Student Projects: Nav Clicked"
+            data-toggle="dropdown"
+            @click.native="trackEvent"
           >
             {{ classroom.name }}
           </router-link>
@@ -162,25 +333,220 @@
         </li>
       </ul>
     </li>
-    <li>
-      <router-link to="/teachers/licenses" id="LicensesAnchor" :class="{ 'current-route': licensesSelected } " @click.native="trackEvent" data-action="My Licenses: Nav Clicked">
+
+    <li
+      role="presentation"
+      class="dropdown"
+    >
+      <a
+        id="GuideDropdown"
+        :class="['dropdown-toggle', isGuideTabSelected ? 'current-route' : '']"
+        href="#"
+        role="button"
+        data-toggle="dropdown"
+        aria-haspopup="true"
+        aria-expanded="false"
+      >
+        <div id="IconCurriculum" />
+        <span>{{ $t('teacher_dashboard.curriculum') }}</span>
+        <span class="caret" />
+      </a>
+      <ul
+        class="dropdown-menu"
+        aria-labelledby="GuideDropdown"
+      >
+        <div
+          v-if="gradeBandOptions.length > 0"
+          class="grade-filter"
+          role="presentation"
+        >
+          <grade-filter-component
+            :grade-band="gradeBand"
+            :grade-band-options="gradeBandOptions"
+            @change="onSelectGradeBand"
+          />
+        </div>
+        <li
+          v-for="option in guideOptions"
+          :key="option.id"
+          :class="[isCurrentRoute(option.path) ? 'selected' : null, isHighlightedOption(option) ? 'highlight' : null]"
+        >
+          <a
+            v-if="option.type === 'a'"
+            :href="option.path"
+            class="dropdown-item"
+            data-action="Guide: Nav Clicked"
+            target="_blank"
+          >
+            {{ option.name }}
+            <IconBeta
+              v-if="option.beta"
+              class="beta-icon"
+            />
+            <IconNew
+              v-if="option.isNew"
+              class="new-icon"
+            />
+          </a>
+          <router-link
+            v-else
+            tag="a"
+            :to="option.path"
+            class="dropdown-item"
+            data-action="Guide: Nav Clicked"
+            data-toggle="dropdown"
+            :data-label="$route.path"
+          >
+            {{ option.name }}
+            <IconNew
+              v-if="option.isNew"
+              class="new-icon"
+            />
+          </router-link>
+        </li>
+      </ul>
+    </li>
+    <li v-if="showLicenses">
+      <router-link
+        id="LicensesAnchor"
+        to="/teachers/licenses"
+        :class="{ 'current-route': isCurrentRoute('/teachers/licenses') }"
+        data-action="My Licenses: Nav Clicked"
+        @click.native="trackEvent"
+      >
         <div id="IconLicense" />
-        {{ $t('teacher_dashboard.my_licenses') }}
+        <span>{{ $t('teacher_dashboard.my_licenses') }}</span>
       </router-link>
     </li>
-    <li>
-      <router-link to="/teachers/resources" id="ResourceAnchor" :class="{ 'current-route': resourceHubSelected }" @click.native="trackEvent" data-action="Resource Hub: Nav Clicked">
+    <li
+      role="presentation"
+      class="dropdown"
+    >
+      <a
+        id="TeacherToolDropdown"
+        :class="['dropdown-toggle', isToolTabSelected ? 'current-route' : '']"
+        href="#"
+        role="button"
+        data-toggle="dropdown"
+        aria-haspopup="true"
+        aria-expanded="false"
+      >
         <div id="IconResourceHub" />
-        {{ $t('teacher_dashboard.resource_hub') }}
-      </router-link>
+        <span>{{ $t('nav.teacher_tools') }}</span>
+        <span class="caret" />
+      </a>
+      <ul
+        class="dropdown-menu"
+        aria-labelledby="TeacherToolDropdown"
+      >
+        <li
+          v-for="option in visibleToolOptions"
+          :key="option.id"
+          :class="isCurrentRoute(option.path) ? 'selected' : null"
+        >
+          <a
+            v-if="option.type === 'a'"
+            :href="option.path"
+            class="dropdown-item"
+            data-action="Tool: Nav Clicked"
+            target="_blank"
+          >
+            {{ option.name }}
+          </a>
+          <router-link
+            v-else
+            tag="a"
+            :to="option.path"
+            class="dropdown-item"
+            data-action="Tool: Nav Clicked"
+            data-toggle="dropdown"
+            :data-label="$route.path"
+          >
+            {{ option.name }}
+          </router-link>
+        </li>
+      </ul>
+    </li>
+
+    <li
+      v-if="showAssessments"
+      class="dropdown"
+    >
+      <a
+        id="AssessmentsDropdown"
+        :class="['dropdown-toggle', isCurrentRoute('/teachers/assessments') ? 'current-route' : '']"
+        href="#"
+        role="button"
+        data-toggle="dropdown"
+        aria-haspopup="true"
+        aria-expanded="false"
+      >
+        <IconAssessments class="icon-assessments svgicon default" />
+        <IconAssessments
+          class="icon-assessments svgicon hovered"
+          theme="white"
+        />
+        <IconAssessments
+          class="icon-assessments svgicon selected"
+          theme="purple"
+        />
+        <span>{{ $t('teacher_dashboard.assessments_tab') }}</span>
+        <span class="caret" />
+      </a>
+      <ul
+        v-if="classrooms.length > 0"
+        class="dropdown-menu"
+        aria-labelledby="AssessmentsDropdown"
+      >
+        <li
+          v-for="classroom in classrooms"
+          :key="classroom._id"
+          :class="classroomSelected === classroom._id && isCurrentRoute('/teachers/assessments') ? 'selected' : null"
+        >
+          <router-link
+            :to="`/teachers/assessments/${classroom._id}`"
+            class="dropdown-item"
+            data-action="Assessments: Nav Clicked"
+            data-toggle="dropdown"
+            @click.native="trackEvent"
+          >
+            {{ classroom.name }}
+          </router-link>
+        </li>
+      </ul>
+      <ul
+        v-else
+        class="dropdown-menu"
+        aria-labelledby="AssessmentsDropdown"
+      >
+        <li>
+          <a class="dropdown-item disabled-item">
+            {{ $t('teacher_dashboard.no_classes_yet') }}
+          </a>
+        </li>
+      </ul>
     </li>
     <li>
-      <router-link to="/teachers/professional-development" id="PDAnchor" :class="{ 'current-route': pdSelected }" @click.native="trackEvent" data-action="PD: Nav Clicked">
-        <div id="IconPD" />
-        <div id="IconNew">New!</div>
-        {{ $t('teacher_dashboard.pd_short') }}
-      </router-link>
+      <dashboard-toggle
+        v-if="isCodeCombat"
+        class="dashboard-toggle"
+        size="sm"
+        :show-title="true"
+        reload-location="/teachers/classes"
+      />
     </li>
+    <ModalCurriculumPromotion ref="modalCurriculumPromotion" />
+    <ModalEndOfTrial ref="modalEndOfTrial" />
+    <ModalOzariaHackStack
+      v-if="isOzaria"
+      ref="modalOzariaHackStack"
+    />
+    <ModalOzariaAILeague
+      v-if="isOzaria"
+      ref="ModalOzariaAILeague"
+    />
+    <ModalTestStudentPromotion />
+    <ModalAIAlgebraPromotion />
   </ul>
 </template>
 
@@ -188,6 +554,7 @@
 @import "app/styles/bootstrap/variables";
 @import "ozaria/site/styles/common/variables.scss";
 @import "app/styles/ozaria/_ozaria-style-params.scss";
+@import "app/styles/component_variables.scss";
 
 #IconCapstone {
   background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Capstone.svg);
@@ -195,54 +562,298 @@
 }
 
 #IconMyClasses {
-  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconMyClasses.svg);
+  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconMyClasses_Gray.svg);
   margin-top: -6px;
 }
 
-/* Need aria-expanded for when user has mouse in the dropdown */
-#ProjectsDropdown:hover, #ProjectsDropdown.current-route, #ProjectsDropdown[aria-expanded="true"] {
-  #IconCapstone {
-    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Capstone_Blue.svg);
-  }
+#IconCurriculum {
+  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Assessments_Gray.svg);
+  margin-top: -3px;
 }
 
-#ClassesDropdown:hover, #ClassesDropdown.current-route, #ClassesDropdown[aria-expanded="true"]  {
-  #IconMyClasses {
-    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconMyClasses_Blue.svg);
-  }
-}
-
-#LicensesAnchor:hover , #LicensesAnchor.current-route {
-  #IconLicense {
-    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconLicense_Blue.svg);
-  }
-}
-
-#ResourceAnchor:hover, #ResourceAnchor.current-route {
-  #IconResourceHub {
-    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconResourceHub_Blue.svg);
-  }
-}
-
-#PDAnchor:hover, #PDAnchor.current-route {
-  #IconPD {
-    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconPD_Blue.svg);
-  }
-}
-
-#IconLicense {
-  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconLicense.svg);
+#IconKeepPlaying {
+  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconKeepPlaying_Gray.svg);
   margin-top: -2px;
 }
 
+#IconLicense {
+  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconLicense_Gray.svg);
+  margin-top: -3px;
+}
+
+#IconOzaria {
+  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconOzaria_Gray.svg);
+  margin-top: -3px;
+}
+
+#IconHackStack {
+  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconHackStack_Gray.svg);
+  margin-top: -3px;
+}
+
 #IconResourceHub {
-  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconResourceHub_White.svg);
+  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconResourceHub_Gray.svg);
   margin-top: -3px;
 }
 
 #IconPD {
-  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconPD_White.svg);
+  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconPD_Gray.svg);
   margin-top: -3px;
+}
+
+#IconAssessments {
+  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Assessments_Gray.svg);
+  margin-top: -3px;
+}
+
+.svgicon {
+  background-image: none;
+  width: 37px;
+  height: 37px;
+}
+
+.icon-ai {
+  margin-top: -6px;
+  margin-left: -2px;
+}
+
+.icon-apcsp {
+  margin-top: -3px;
+  transform: scale(1.6);
+}
+
+.icon-assessments {
+  transform: scale(0.75) translateX(-4px);
+}
+
+.svgicon {
+  display: block;
+  &.hovered,
+  &.selected {
+    display: none;
+  }
+}
+
+li:hover:not(.open)>*,
+li:not(.open)>*:hover:not(.current-route) {
+  > .svgicon {
+    display: block;
+    &.default,
+    &.selected {
+      display: none;
+    }
+  }
+}
+
+li.open>*,
+li>*.current-route {
+  > .svgicon {
+    display: block;
+    &.default,
+    &.hovered {
+      display: none;
+    }
+  }
+}
+
+/* Need aria-expanded for when user has mouse in the dropdown */
+#ProjectsDropdown:hover {
+  #IconCapstone {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Capstone_White.svg);
+  }
+}
+
+li.open>#ProjectsDropdown,
+#ProjectsDropdown.current-route,
+#ProjectsDropdown[aria-expanded="true"] {
+  #IconCapstone {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Capstone_Purple.svg);
+  }
+}
+
+#ClassesDropdown:hover {
+  #IconMyClasses {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconMyClasses_White.svg);
+  }
+}
+
+li.open>#ClassesDropdown,
+#ClassesDropdown.current-route,
+#ClassesDropdown[aria-expanded="true"] {
+  #IconMyClasses {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconMyClasses_Purple.svg);
+  }
+}
+
+#LicensesAnchor:hover {
+  #IconLicense {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconLicense_White.svg);
+  }
+}
+
+li.open>#LicensesAnchor,
+#LicensesAnchor.current-route {
+  #IconLicense {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconLicense_Purple.svg);
+  }
+}
+
+#OzariaAnchor:hover {
+  #IconOzaria {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconOzaria_White.svg);
+  }
+}
+
+#HackStackAnchor:hover {
+  #IconHackStack {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconHackStack_White.svg);
+  }
+}
+
+#GuideDropdown:hover {
+  #IconCurriculum {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Assessments_White.svg);
+  }
+}
+
+li.open>#GuideDropdown,
+#GuideDropdown.current-route {
+  #IconCurriculum {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Assessments_Purple.svg);
+  }
+}
+
+#ResourceAnchor:hover {
+  #IconResourceHub {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconResourceHub_White.svg);
+  }
+}
+
+.grade-filter {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+}
+
+/* Highlight matching options for the selected grade band */
+.dropdown-menu li.highlight > a,
+.dropdown-menu li.highlight > .dropdown-item {
+  background-color: #EEF4FF;
+  color: #2F4F8F;
+}
+
+li.open>#ResourceAnchor,
+#ResourceAnchor.current-route {
+  #IconResourceHub {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconResourceHub_Purple.svg);
+  }
+}
+
+#PDAnchor:hover {
+  #IconPD {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconPD_White.svg);
+  }
+}
+
+li.open>#PDAnchor,
+#PDAnchor.current-route {
+  #IconPD {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconPD_Purple.svg);
+  }
+}
+
+#AssessmentsDropdown {
+  .icon-assessments {
+    display: none;
+
+    &.default {
+      display: block;
+    }
+  }
+
+  &:hover {
+    .icon-assessments {
+      display: none;
+      &.hovered {
+        display: block;
+      }
+    }
+  }
+}
+
+li.open>#AssessmentsDropdown {
+  .icon-assessments {
+    display: none;
+
+    &.selected {
+      display: block;
+    }
+  }
+  &:hover {
+    .icon-assessments {
+      display: none;
+      &.selected {
+        display: block;
+      }
+    }
+  }
+}
+
+#AILeague {
+  .league-name {
+    display: none;
+
+    &__gray {
+      display: block;
+    }
+  }
+}
+
+#AILeague:hover {
+  .league-name {
+    display: none;
+
+    &__white {
+      display: block;
+    }
+  }
+
+  #IconKeepPlaying {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconKeepPlaying_White.svg);
+  }
+}
+
+li.open>#AILeague,
+#AILeague.current-route {
+  .league-name {
+    display: none;
+
+    &__purple {
+      display: block;
+    }
+  }
+
+  #IconKeepPlaying {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/IconKeepPlaying_Purple.svg);
+  }
+}
+
+#IconAIJunior {
+  background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Capstone.svg);
+  margin-top: -1px;
+}
+
+#AIJuniorDropdown:hover {
+  #IconAIJunior {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Capstone_White.svg);
+  }
+}
+li.open>#AIJuniorDropdown,
+#AIJuniorDropdown.current-route,
+#AIJuniorDropdown[aria-expanded="true"] {
+  #IconAIJunior {
+    background-image: url(/images/ozaria/teachers/dashboard/svg_icons/Icon_Capstone_Purple.svg);
+  }
 }
 
 #IconNew {
@@ -259,9 +870,19 @@
   text-transform: capitalize;
 }
 
-#IconCapstone, #IconMyClasses, #IconLicense, #IconResourceHub, #IconPD {
+#IconCapstone,
+#IconMyClasses,
+#IconCurriculum,
+#IconLicense,
+#IconOzaria,
+#IconHackStack,
+#IconResourceHub,
+#IconPD,
+#IconAssessments,
+#IconAIJunior,
+#IconKeepPlaying {
   height: 23px;
-  width: 23px;
+  width: 29px;
   display: inline-block;
   background-repeat: no-repeat;
   background-position: center;
@@ -269,83 +890,134 @@
   margin-right: 8px;
 }
 
-#secondaryNav {
+.secondaryNav {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   justify-content: flex-start;
-  padding-left: 23.5px;
-  height: 35px;
-  min-height: 35px;
+  height: min-content;
+  font-family: $ozaria-main-font-family;
 
-  & > li {
-    height: 35px;
-    width: 230px;
-    text-align: center;
-    margin: 0 6.5px;
+  &>li {
 
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    &:hover {
+      >a {
+        background-color: $purple;
+        /* color: #f7d047; */
+        color: $light-background;
+      }
+    }
 
-    background-color: $twilight;
-    border-radius: 10px 10px 0 0;
-
-    &.dropdown.open > a, & > a:hover, a.current-route {
-      background-color: #F2F2F2;
-      color: $twilight;
-      border: 1px solid #d8d8d8;
-      border-bottom: unset;
+    &.dropdown.open>a,
+    a.current-route {
+      border: none;
+      background: $light-purple;
+      color: $purple;
     }
 
     a {
-      @include font-h-4-navbar-uppercase-white;
-      font-size: 14px;
+      height: 60px;
+      color: #545B64;
+      background-color: transparent;
+      font-size: 18px;
+      font-weight: 600;
 
       width: 100%;
-      height: 100%;
       padding: 0;
 
-      display:flex;
+      padding-left: 10px;
+
+      display: flex;
+      gap: 10px;
       flex-direction: row;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
 
-      & > img {
+      &>img {
         margin-top: -6px;
         margin-right: 13px;
       }
+
+      &>span {
+        max-width: 180px;
+        text-wrap: wrap;
+      }
     }
 
-    & > a {
-      padding-top: 3px;
-      border-radius: 10px 10px 0 0;
+    &>a {
+      white-space: nowrap;
     }
 
     .dropdown-menu {
-      a {
-        color: $twilight;
-        height: 35px;
-        text-align: left;
+      position: relative;
+      padding: 0;
+      margin: 0;
+      width: 100%;
+      border: none;
+      border-radius: none;
+      background: transparent;
+      box-shadow: none;
 
-        justify-content: start;
+      li:hover {
+        background-color: $middle-purple;
+      }
+
+      li {
+        height: 50px;
+        display: flex;
+        align-items: center;
         justify-content: flex-start;
       }
 
-      min-width: 230px;
-      padding: 0 20px;
+      a {
+        color: #131B25;
+        line-height: 50px;
+        height: auto;
+        text-align: left;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-left: 30px;
+
+        &:hover {
+          background-color: transparent;
+        }
+      }
     }
 
     li.selected a {
-      color: #979797
+      color: $purple;
+      background-color: $light-purple;
     }
 
     li .underline-item {
       border-bottom: 1px solid #ddd;
     }
+
     li .disabled-item {
       color: #979797;
       cursor: default;
     }
+
   }
+}
+
+.modal-highlight {
+  z-index: 10000;
+}
+
+.dashboard-toggle {
+  margin: 5px 0 10px;
+}
+
+.beta-icon {
+  margin-top: -30px !important;
+  width: 30px;
+  margin-left: -10px;
+}
+
+.new-icon {
+  margin-top: -30px !important;
+  width: 30px;
+  margin-left: -5px;
 }
 </style>

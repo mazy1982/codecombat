@@ -1,63 +1,75 @@
 <script>
-  import ClassInfoRow from '../../common/ClassInfoRow'
-  import IconEllipsis from '../../common/icons/IconEllipsis'
-  import IconButtonWithText from '../../common/buttons/IconButtonWithText'
-  import IconShareDusk from '../../common/icons/IconShareDusk'
+import ClassInfoRow from '../../common/ClassInfoRow'
+import IconEllipsis from '../../common/icons/IconEllipsis'
+import IconButtonWithText from '../../common/buttons/IconButtonWithText'
+import IconSharePurple from '../../common/icons/IconSharePurple'
 
-  export default {
-    components: {
-      ClassInfoRow,
-      IconEllipsis,
-      'icon-button-with-text': IconButtonWithText,
-      IconShareDusk,
+export default {
+  components: {
+    ClassInfoRow,
+    IconEllipsis,
+    'icon-button-with-text': IconButtonWithText,
+    IconSharePurple
+  },
+  props: {
+    classId: {
+      type: String,
+      required: true
     },
-    props: {
-      classId: {
-        type: String,
-        required: true
-      },
-      classroomName: {
-        type: String,
-        required: true
-      },
-      language: {
-        type: String,
-        required: true
-      },
-      numStudents: {
-        type: Number,
-        required: true
-      },
-      dateCreated: {
-        type: String,
-        required: true
-      },
-      // TODO: CodeCamel isn't set when spying with administrator teacher.
-      codeCamel: {
-        type: String,
-        default: undefined
-      },
-      archived: {
-        type: Boolean,
-        default: false
-      },
-      displayOnly: {
-        type: Boolean,
-        default: false
-      },
-      sharePermission: {
-        type: String,
-        default: undefined,
-      }
+    classroomName: {
+      type: String,
+      required: true
     },
-    methods: {
-      trackEvent (eventName) {
-        if (eventName) {
-          window.tracker?.trackEvent(eventName, { category: 'Teachers' })
-        }
+    language: {
+      type: String,
+      required: true
+    },
+    numStudents: {
+      type: Number,
+      required: true
+    },
+    dateCreated: {
+      type: String,
+      required: true
+    },
+    dateStart: {
+      type: String,
+      default: ''
+    },
+    dateEnd: {
+      type: String,
+      default: ''
+    },
+    // TODO: CodeCamel isn't set when spying with administrator teacher.
+    codeCamel: {
+      type: String,
+      default: undefined
+    },
+    archived: {
+      type: Boolean,
+      default: false
+    },
+    displayOnly: {
+      type: Boolean,
+      default: false
+    },
+    sharePermission: {
+      type: String,
+      default: undefined
+    },
+    classType: {
+      type: String,
+      default: ''
+    }
+  },
+  methods: {
+    trackEvent (eventName) {
+      if (eventName) {
+        window.tracker?.trackEvent(eventName, { category: 'Teachers' })
       }
     }
   }
+}
 </script>
 
 <template>
@@ -66,63 +78,71 @@
       id="class-header"
       class="flex-row"
     >
-      <router-link
-        v-if="!archived && !displayOnly"
-        id="class-header-shepherd"
-        tag="a"
-        :to="`/teachers/classes/${classId}`"
-        class="flex-row clickable"
-        @click.native="trackEvent('All Classes: Class Card Clicked')"
-      >
-        <h2 class="padding-left">
-          {{ classroomName }}
-        </h2>
-        <class-info-row
-          :language="language"
-          :num-students="numStudents"
-          :date-created="dateCreated"
-          :share-permission="sharePermission"
-          :archived="archived"
-        />
-      </router-link>
-      <div
-        v-else
-        class="flex-row full-width"
-      >
-        <h2 class="padding-left">
-          {{ classroomName }}
-        </h2>
-        <class-info-row
-          :language="language"
-          :num-students="numStudents"
-          :date-created="dateCreated"
-          :share-permission="sharePermission"
-          :archived="archived"
-        />
-      </div>
-      <div
-        v-if="!displayOnly && codeCamel"
-        class="flex-row class-code"
-      >
-        <span class="class-code-title">{{ $t('teachers.class_code') }}</span>
-        <span class="class-code-text">{{ codeCamel }}</span>
-      </div>
-      <div class="flex-row floaty-right">
-        <icon-button-with-text
-          class="icon-with-text"
-          :icon-name="displayOnly ? 'IconAddStudents_Gray' : 'IconAddStudents'"
-          :text="$t('courses.add_students')"
-          :inactive="displayOnly"
-          @click="$emit('clickAddStudentsModalButton')"
-        />
-      </div>
-      <div
-        v-if="!displayOnly"
-        class="btn-ellipse share"
-        @click="$emit('clickShareClassWithTeacherModalButton')"
-      >
-        <icon-share-dusk />
-        <span class="share-text">{{this.$t('teacher_dashboard.share')}}</span>
+      <div class="class-hover-area flex-row">
+        <router-link
+          v-if="!archived && !displayOnly"
+          id="class-header-shepherd"
+          tag="a"
+          :to="`/teachers/classes/${classId}`"
+          class="flex-row clickable"
+          @click.native="trackEvent('All Classes: Class Card Clicked')"
+        >
+          <h2 class="padding-left">
+            {{ classroomName }}
+          </h2>
+          <class-info-row
+            :language="language"
+            :num-students="numStudents"
+            :date-created="dateCreated"
+            :date-start="dateStart"
+            :date-end="dateEnd"
+            :share-permission="sharePermission"
+            :archived="archived"
+            :class-type="classType"
+          />
+        </router-link>
+        <div
+          v-else
+          class="flex-row full-width"
+        >
+          <h2 class="padding-left">
+            {{ classroomName }}
+          </h2>
+          <class-info-row
+            :language="language"
+            :num-students="numStudents"
+            :date-created="dateCreated"
+            :date-start="dateStart"
+            :date-end="dateEnd"
+            :share-permission="sharePermission"
+            :archived="archived"
+            :class-type="classType"
+          />
+        </div>
+        <div
+          v-if="!displayOnly && codeCamel"
+          class="flex-row class-code"
+        >
+          <span class="class-code-title">{{ $t('teachers.class_code') }}</span>
+          <span class="class-code-text">{{ codeCamel }}</span>
+        </div>
+        <div class="flex-row floaty-right">
+          <icon-button-with-text
+            class="icon-with-text"
+            :icon-name="displayOnly ? 'IconAddStudents_Gray' : 'IconAddStudents'"
+            :text="$t('courses.add_students')"
+            :inactive="displayOnly"
+            @click="$emit('clickAddStudentsModalButton')"
+          />
+        </div>
+        <div
+          v-if="!displayOnly"
+          class="btn-ellipse share"
+          @click="$emit('clickShareClassWithTeacherModalButton')"
+        >
+          <icon-share-purple />
+          <span class="share-text">{{ $t('teacher_dashboard.share') }}</span>
+        </div>
       </div>
       <div
         v-if="!displayOnly"
@@ -154,7 +174,7 @@
     border: 1px solid #D8D8D8;
     border-radius: 4px;
 
-    font-family: Work Sans;
+    font-family: $ozaria-main-font-family;
 
     .class-code-title {
       height: 12px;
@@ -196,6 +216,9 @@
   h2 {
     @include font-h-4-nav-uppercase-black;
     padding-right: 24px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 30px;
   }
 
   #class-summary-row {
@@ -217,12 +240,33 @@
     align-items: center;
   }
 
+  .class-hover-area {
+    width: 100%;
+    &:hover {
+      position: relative;
+      > * {
+        z-index: 10; // Ensure all children will appear over the border element.
+      }
+      &::after {
+        /* In order to make sure the elements inside are not moving, we create a new
+        absolute positioned element for the border */
+        border: 0.5px solid #74C6DF;
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right:0;
+        z-index: 1;
+      }
+    }
+  }
+
   .clickable {
     width: 100%;
     height: 100%;
     text-decoration: none;
     &:hover {
-      border: 0.5px solid #74C6DF;
       cursor: pointer;
     }
   }
@@ -239,9 +283,10 @@
   }
 
   .btn-ellipse {
-    border: 0.5px solid #d8d8d8;
+    border-left: 0.5px solid #d8d8d8;
     width: 62px;
-    height: 46px;
+    height: 44px;
+    margin: 1px 0;
 
     display: flex;
     justify-content: center;
@@ -256,7 +301,7 @@
     }
   }
   .share-text {
-    @include font-p-3-small-button-text-dusk-dark;
+    @include font-p-3-small-button-text-purple;
     font-size: 12px;
     font-weight: 500;
     line-height: 12px;

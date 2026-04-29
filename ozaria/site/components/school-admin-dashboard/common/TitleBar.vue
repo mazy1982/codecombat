@@ -1,69 +1,96 @@
 <script>
-  import ButtonCurriculumGuide from '../../teacher-dashboard/common/ButtonCurriculumGuide'
-  import NavSelectUnit from '../../teacher-dashboard/common/NavSelectUnit'
-  import BreadcrumbComponent from 'app/views/common/BreadcrumbComponent'
+import PrimaryButton from '../../teacher-dashboard/common/buttons/PrimaryButton'
+import ButtonCurriculumGuide from '../../teacher-dashboard/common/ButtonCurriculumGuide'
+import NavSelectUnit from '../../teacher-dashboard/common/NavSelectUnit'
+import BreadcrumbComponent from 'app/views/common/BreadcrumbComponent'
+import SecondaryButton from '../../teacher-dashboard/common/buttons/SecondaryButton.vue'
 
-  import { mapActions } from 'vuex'
+import { mapActions } from 'vuex'
 
-  export default {
-    components: {
-      'button-curriculum-guide': ButtonCurriculumGuide,
-      'nav-select-unit': NavSelectUnit,
-      BreadcrumbComponent
+export default {
+  components: {
+    'primary-button': PrimaryButton,
+    'button-curriculum-guide': ButtonCurriculumGuide,
+    'nav-select-unit': NavSelectUnit,
+    BreadcrumbComponent,
+    'secondary-button': SecondaryButton
+  },
+
+  props: {
+    title: {
+      type: String,
+      default: ''
     },
-
-    props: {
-      title: {
-        type: String,
-        default: ''
-      },
-      breadcrumbList: {
-        type: Array,
-        default: () => []
-      },
-      showBreadCrumbs: {
-        type: Boolean,
-        default: false
-      },
-      showCourseDropdown: {
-        type: Boolean,
-        default: false
-      },
-      selectedCourseId: {
-        type: String,
-        default: ''
-      },
-      courses: {
-        type: Array,
-        default: () => []
-      }
+    breadcrumbList: {
+      type: Array,
+      default: () => []
     },
-
-    methods: {
-      ...mapActions({
-        toggleCurriculumGuide: 'baseCurriculumGuide/toggleCurriculumGuide'
-      }),
-
-      clickBreadCrumbsLink (text) {
-        if (text.length > 0) {
-          const textArr = text.split(" ")
-          const eventName = textArr[textArr.length - 1] // Take last word of the breadcrumbs' text
-          window.tracker?.trackEvent(`BreadCrumbs: ${eventName} Clicked`, { category: 'SchoolAdmin', label: this.$route.path })
-        }
-      },
-
-      clickCurriculumGuide () {
-        window.tracker?.trackEvent('Curriculum Guide Clicked', { category: 'SchoolAdmin', label: this.$route.path })
-        this.toggleCurriculumGuide()
-      }
+    showBreadCrumbs: {
+      type: Boolean,
+      default: false
+    },
+    showCourseDropdown: {
+      type: Boolean,
+      default: false
+    },
+    selectedCourseId: {
+      type: String,
+      default: ''
+    },
+    courses: {
+      type: Array,
+      default: () => []
     }
+  },
+
+  computed: {
+    outcomesReportLink () {
+      const kind = 'school-admin'
+      const org = me.get('_id')
+      return `/outcomes-report/${kind}/${org}`
+    }
+  },
+
+  methods: {
+    ...mapActions({
+      toggleCurriculumGuide: 'baseCurriculumGuide/toggleCurriculumGuide'
+    }),
+
+    clickBreadCrumbsLink (text) {
+      if (text.length > 0) {
+        const textArr = text.split(' ')
+        const eventName = textArr[textArr.length - 1] // Take last word of the breadcrumbs' text
+        window.tracker?.trackEvent(`BreadCrumbs: ${eventName} Clicked`, { category: 'SchoolAdmin', label: this.$route.path })
+      }
+    },
+
+    clickOutcomesReport () {
+      window.tracker?.trackEvent('Outcomes Report Clicked', { category: 'SchoolAdmin', label: this.$route.path })
+      this.$emit('outcomesReport')
+    },
+
+    clickCurriculumGuide () {
+      window.tracker?.trackEvent('Curriculum Guide Clicked', { category: 'SchoolAdmin', label: this.$route.path })
+      // this.toggleCurriculumGuide()
+      window.open('teachers/curriculum', '_blank')
+    },
+    isNapervilleAdmin () {
+      return me.isNapervilleAdmin()
+    },
+    clickRosterClassroom () {
+      this.$emit('rosterClassroom')
+    }
+
   }
+}
 </script>
 
 <template>
   <div class="school-admin-title-bar">
     <div class="sub-nav">
-      <h1 v-if="!showBreadCrumbs && title"> {{ title }} </h1>
+      <h1 v-if="!showBreadCrumbs && title">
+        {{ title }}
+      </h1>
       <breadcrumb-component
         v-else-if="showBreadCrumbs && breadcrumbList.length > 0"
         :links="breadcrumbList"
@@ -79,9 +106,28 @@
         @change-course=" (courseId) => $emit('change-course', courseId)"
       />
       <div style="display: flex;">
+        <span
+          v-if="isNapervilleAdmin()"
+        >
+          <secondary-button
+            class="btn-title-padding btn-margins-height"
+            @click="clickRosterClassroom"
+          >
+            {{ $t('school_administrator.roster') }}
+          </secondary-button>
+        </span>
+        <a :href="outcomesReportLink">
+          <primary-button
+            id="outcomes-report-btn"
+            class="btn-title-padding btn-margins-height"
+            @click="clickOutcomesReport"
+          >
+            {{ $t('outcomes.outcomes_report') }}
+          </primary-button>
+        </a>
+
         <button-curriculum-guide
           class="btn-margins-height"
-
           @click="clickCurriculumGuide"
         />
       </div>
@@ -94,8 +140,13 @@
 @import "ozaria/site/styles/common/variables.scss";
 @import "app/styles/ozaria/_ozaria-style-params.scss";
 
+.btn-title-padding {
+  padding: 8px 22px;
+}
+
 .btn-margins-height {
   margin: 0 12.5px;
+  white-space: nowrap;
 }
 
 .sub-nav {
@@ -117,7 +168,7 @@
     }
 
     h1 {
-      max-width: 600px
+      max-width: 600px;
     }
   }
 }
@@ -142,6 +193,10 @@
   -webkit-box-shadow: 0 8px 6px -6px #D2D2D2;
     -moz-box-shadow: 0 8px 6px -6px #D2D2D2;
         box-shadow: 0 8px 6px -6px #D2D2D2;
+
+  @media (max-width: 1280px) {
+    min-width: 1000px;
+  }
 }
 
 h1 {
@@ -150,6 +205,7 @@ h1 {
   overflow-y: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  color: var(--color-primary);
 }
 
 </style>

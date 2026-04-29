@@ -1,7 +1,7 @@
 <template lang="pug">
   #hoc-2018-page
     .hoc-header
-      h4(data-i18n="hoc_2018.banner")
+      h4(data-i18n="hoc_2018.banner_ozar")
 
     .container
 
@@ -100,19 +100,19 @@ module.exports = Vue.extend({
       ]
     }
   },
-
-  data: function() {
-    return {
-      teacherEmail: ''
-    }
-  },
   props: {
     onGetCS1Free: {
       type: Function,
       required: true
     }
+  },
+
+  data: function () {
+    return {
+      teacherEmail: ''
+    }
   }
-});
+})
 </script>
 
 <style lang="sass">

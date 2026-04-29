@@ -1,13 +1,12 @@
-import SegmentTracker from './SegmentTracker'
 import CookieConsentTracker from './CookieConsentTracker'
 import InternalTracker from './InternalTracker'
 import BaseTracker from './BaseTracker'
 import GoogleAnalyticsTracker from './GoogleAnalyticsTracker'
-import DriftTracker from './DriftTracker'
 import FullStoryTracker from './FullStoryTracker'
-import GoogleOptimizeTracker from './GoogleOptimizeTracker'
 import FacebookPixelTracker from './FacebookPixelTracker'
-import ProfitWellTracker from './ProfitWellTracker'
+import TwitterPixelTracker from './TwitterPixelTracker'
+import ZendeskTracker from './ZendeskTracker'
+import SuperflowTracker from './SuperFlowTracker'
 
 const SESSION_STORAGE_IDENTIFIED_AT_SESSION_START_KEY = 'coco.tracker.identifiedAtSessionStart'
 const SESSION_STORAGE_IDENTIFY_ON_NEXT_PAGE_LOAD = 'coco.tracker.identifyOnNextPageLoad'
@@ -30,16 +29,15 @@ export default class Tracker2 extends BaseTracker {
 
     this.cookieConsentTracker = new CookieConsentTracker(this.store)
     this.internalTracker = new InternalTracker(this.store)
-    this.segmentTracker = new SegmentTracker(this.store)
     this.googleAnalyticsTracker = new GoogleAnalyticsTracker(this.store)
-    this.driftTracker = new DriftTracker(this.store)
     this.fullStoryTracker = new FullStoryTracker(this.store, this)
-    this.googleOptimizeTracker = new GoogleOptimizeTracker(this.store)
     this.facebookPixelTracker = new FacebookPixelTracker(this.store)
-    this.profitWellTracker = new ProfitWellTracker(this.store)
+    this.twitterPixelTracker = new TwitterPixelTracker(this.store)
+    this.zendeskTracker = new ZendeskTracker(this.store)
+    this.superflowTracker = new SuperflowTracker(this.store)
 
     this.trackers = [
-      this.internalTracker
+      this.internalTracker,
     ]
 
     const isGlobal = !(window.features || {}).china
@@ -47,13 +45,12 @@ export default class Tracker2 extends BaseTracker {
       // add trackers we don't want china to enable here.
       this.trackers = [
         ...this.trackers,
-        this.segmentTracker,
         this.googleAnalyticsTracker,
-        this.driftTracker,
         this.fullStoryTracker,
-        this.googleOptimizeTracker,
         this.facebookPixelTracker,
-        this.profitWellTracker
+        this.twitterPixelTracker,
+        this.zendeskTracker,
+        this.superflowTracker
       ]
     }
   }
@@ -158,10 +155,6 @@ export default class Tracker2 extends BaseTracker {
     } catch (e) {
       this.log('trackTiming call failed', e)
     }
-  }
-
-  get drift () {
-    return this.driftTracker.drift
   }
 
   identifyAfterNextPageLoad () {

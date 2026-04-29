@@ -10,7 +10,7 @@ Campaign = require 'models/Campaign'
 Classroom = require 'models/Classroom'
 Course = require 'models/Course'
 CourseInstance = require 'models/CourseInstance'
-GameMenuModal = require 'ozaria/site/views/play/menu/GameMenuModal'
+GameMenuModal = require 'views/play/menu/GameMenuModal'
 LevelSetupManager = require 'lib/LevelSetupManager'
 CreateAccountModal = require 'views/core/CreateAccountModal'
 
@@ -78,7 +78,7 @@ module.exports = class ControlBarView extends CocoView
 
   onLoaded: ->
     if @classroom
-      @levelNumber = @classroom.getLevelNumber(@level.get('original'), @levelNumber)
+      @levelNumber = @classroom.getLevelNumber(@level.get('original'), @levelNumber, @courseID)
     else if @campaign
       @levelNumber = @campaign.getLevelNumber(@level.get('original'), @levelNumber)
     if application.getHocCampaign() or @level.get('assessment')
@@ -131,7 +131,7 @@ module.exports = class ControlBarView extends CocoView
         @homeLink += "?course-instance=#{@courseInstanceID}"
 
       @homeViewClass = 'views/play/CampaignView'
-    else if @level.isType('hero', 'hero-coop', 'game-dev', 'web-dev') or window.serverConfig.picoCTF
+    else if @level.isType('hero', 'hero-coop', 'game-dev', 'web-dev')
       @homeLink = '/play'
       @homeViewClass = 'views/play/CampaignView'
       campaign = @level.get 'campaign'

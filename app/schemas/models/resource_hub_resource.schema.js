@@ -6,7 +6,7 @@ const ResourceHubResourceSchema = schema.object(
     description:
       'Dynamic resource store for the teacher dashboard resource hub',
     title: 'ResourceHub Resource',
-    required: ['name']
+    required: ['name', 'icon'],
   },
   {
     icon: schema.shortString({
@@ -18,7 +18,7 @@ const ResourceHubResourceSchema = schema.object(
     section: schema.shortString({
       title: 'Section',
       description: 'Declares which section the resource will appear in.',
-      enum: ['gettingStarted', 'educatorResources', 'studentResources', 'lessonSlides']
+      enum: ['gettingStarted', 'educatorResources', 'lessonSlides', 'studentResources']
     }),
 
     link: {
@@ -31,7 +31,7 @@ const ResourceHubResourceSchema = schema.object(
     i18n: {
       type: 'object',
       format: 'i18n',
-      props: ['name', 'link', 'description'],
+      props: ['name', 'link', 'description']
     },
 
     hidden: {
@@ -63,8 +63,18 @@ const ResourceHubResourceSchema = schema.object(
       format: 'courses',
       items: schema.shortString({
         format: 'course',
-        enum: Object.values(utils.courseAcronyms)
+        enum: Object.values(utils.courseIDs).map(c => utils.courseAcronyms[c])
       })
+    },
+
+    roles: {
+      title: 'Roles',
+      description: 'List of roles that can have access to this resource. If set, then only those roles have access otherwise all do',
+      type: 'array',
+      items: {
+        type: 'string',
+        enum: ['teacher', 'technology coordinator', 'advisor', 'principal', 'superintendent', 'parent', 'parent-home', 'possible teacher']
+      }
     }
   }
 )

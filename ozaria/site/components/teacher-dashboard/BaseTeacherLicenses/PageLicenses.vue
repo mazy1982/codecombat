@@ -1,57 +1,65 @@
 
 <script>
-  import LicenseCard from './common/LicenseCard'
-  import PrimaryButton from '../common/buttons/PrimaryButton'
-  import { mapGetters } from 'vuex'
-  import ButtonResourceIcon from '../BaseResourceHub/components/ButtonResourceIcon'
+import LicenseCard from './common/LicenseCard'
+import PrimaryButton from '../common/buttons/PrimaryButton'
+import { mapGetters } from 'vuex'
+import ButtonResourceIcon from '../BaseResourceHub/components/ButtonResourceIcon'
 
-  export default {
-    components: {
-      LicenseCard,
-      PrimaryButton,
-      ButtonResourceIcon
+export default {
+  components: {
+    LicenseCard,
+    PrimaryButton,
+    ButtonResourceIcon
+  },
+  props: {
+    activeLicenses: {
+      type: Array,
+      required: true,
+      default: () => []
     },
-    props: {
-      activeLicenses: {
-        type: Array,
-        required: true,
-        default: () => []
-      },
-      expiredLicenses: {
-        type: Array,
-        required: true,
-        default: () => []
-      },
-      teacherId: {
-        type: String,
-        required: true
-      },
-      displayOnly: { // sent from DSA
-        type: Boolean,
-        default: false
+    expiredLicenses: {
+      type: Array,
+      required: true,
+      default: () => []
+    },
+    teacherId: {
+      type: String,
+      required: true
+    },
+    displayOnly: { // sent from DSA
+      type: Boolean,
+      default: false
+    }
+  },
+  computed: {
+    ...mapGetters({
+      getUserById: 'users/getUserById',
+      getTrackCategory: 'teacherDashboard/getTrackCategory'
+    }),
+    howToLicensesResourceData () {
+      return {
+        icon: 'Slides',
+        label: 'How To: Manage Licenses',
+        link: 'https://docs.google.com/presentation/d/1SfM5ZMjae8wm8HESHoXXO0wBnKJmJD53BgtG9XwVW9k/edit?usp=sharing'
       }
     },
-    computed: {
-      ...mapGetters({
-        getUserById: 'users/getUserById',
-        getTrackCategory: 'teacherDashboard/getTrackCategory'
-      }),
-      howToLicensesResourceData () {
-        return {
-          icon: 'Slides',
-          label: 'How To: Manage Licenses',
-          link: 'https://docs.google.com/presentation/d/1SfM5ZMjae8wm8HESHoXXO0wBnKJmJD53BgtG9XwVW9k/edit?usp=sharing'
-        }
+    showGetTestLicense () {
+      const testStudentRelation = (me.get('related') || []).filter(related => related.relation === 'TestStudent')[0]
+      if (!testStudentRelation) {
+        return false
       }
-    },
-    methods: {
-      trackEvent (eventName) {
-        if (eventName) {
-          window.tracker?.trackEvent(eventName, { category: this.getTrackCategory })
-        }
+      const testLicense = _.find(this.activeLicenses, (prepaid) => prepaid.properties?.testStudentOnly)
+      return !testLicense
+    }
+  },
+  methods: {
+    trackEvent (eventName) {
+      if (eventName) {
+        window.tracker?.trackEvent(eventName, { category: this.getTrackCategory })
       }
     }
   }
+}
 </script>
 
 <template>
@@ -80,12 +88,23 @@
       >
         {{ $t("courses.get_enrollments") }}
       </primary-button>
+      <primary-button
+        v-if="showGetTestLicense"
+        class="get-test-license"
+        @click="$emit('getTestLicense', { teacherId } )"
+        @click.native="trackEvent('My Licenses: Get Test Student Licenses Clicked')"
+      >
+        {{ $t('courses.get_test_license') }}
+      </primary-button>
       <div class="side-bar-text">
         {{ $t('teacher_dashboard.see_also_our') }} <a href="/funding">{{ $t('nav.funding_resources_guide') }}</a> {{ $t('teacher_dashboard.for_more_funding_resources') }}
       </div>
     </div>
     <div class="license-cards">
-      <div class="active-licenses row" v-if="activeLicenses.length > 0">
+      <div
+        v-if="activeLicenses.length > 0"
+        class="active-licenses row"
+      >
         <span class="col-md-12"> {{ $t("teacher_licenses.active_licenses") }} </span>
         <license-card
           v-for="license in activeLicenses"
@@ -98,11 +117,17 @@
           :end-date="license.endDate"
           :owner="getUserById(license.creator)"
           :teacher-id="teacherId"
+          :properties="license.properties"
+          :included-course-ids="license.includedCourseIDs"
           @apply="$emit('apply')"
           @share="$emit('share', license)"
+          @stats="$emit('stats', license)"
         />
       </div>
-      <div class="expired-licenses row" v-if="expiredLicenses.length > 0">
+      <div
+        v-if="expiredLicenses.length > 0"
+        class="expired-licenses row"
+      >
         <span class="col-md-12"> {{ $t("teacher_licenses.expired_licenses") }} </span>
         <license-card
           v-for="license in expiredLicenses"
@@ -115,7 +140,10 @@
           :end-date="license.endDate"
           :owner="getUserById(license.creator)"
           :teacher-id="teacherId"
+          :properties="license.properties"
+          :included-course-ids="license.includedCourseIDs"
           :expired="true"
+          @stats="$emit('stats', license)"
         />
       </div>
     </div>
@@ -126,6 +154,7 @@
 @import "app/styles/bootstrap/variables";
 @import "ozaria/site/styles/common/variables.scss";
 @import "app/styles/ozaria/_ozaria-style-params.scss";
+@import "app/styles/component_variables.scss";
 
 .licenses-page {
   display: flex;
@@ -158,7 +187,7 @@
   margin: 10px 0px;
 }
 
-.get-licenses-btn {
+.get-licenses-btn, .get-test-license {
   width: 100%;
   max-width: 220px;
   height: 50px;
@@ -174,7 +203,7 @@
   margin: 0px 20px 30px 20px;
   span {
     @include font-h-5-button-text-black;
-    color: $twilight;
+    color: $purple;
     text-align: left;
   }
 }

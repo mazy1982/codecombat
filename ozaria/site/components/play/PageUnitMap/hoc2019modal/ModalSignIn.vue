@@ -2,7 +2,6 @@
 import { mapActions } from 'vuex'
 import BaseModalContainer from '../../../common/BaseModalContainer'
 import { logInWithClever } from 'core/social-handlers/CleverHandler'
-
 const forms = require('core/forms')
 const User = require('models/User')
 const errors = require('core/errors')
@@ -32,33 +31,36 @@ export default {
   },
   data: () => ({
     gplusLoaded: false,
-    showingError: false,
+    showingError: false
   }),
-  mounted() {
-    if (me.useSocialSignOn()) {
-      application.gplusHandler.loadAPI({
-        success: () => { this.gplusLoaded = true }
-      })
+  computed: {
+    useSocialSignOn () {
+      return me.useSocialSignOn()
     }
   },
-  computed: {
-    useSocialSignOn() {
-      return me.useSocialSignOn();
+  mounted () {
+    if (me.useSocialSignOn()) {
+      application.gplusHandler.loadAPI({
+        success: () => {
+          this.gplusLoaded = true
+          this.onClickGPlusLoginButton()
+        }
+      })
     }
   },
   methods: {
     ...mapActions({
-        joinClass: 'studentModal/joinClass',
-        setHocOptions: 'studentModal/setHocOptions'
-      }),
+      joinClass: 'studentModal/joinClass',
+      setHocOptions: 'studentModal/setHocOptions'
+    }),
     async onSubmitForm (e) {
       forms.clearFormAlerts($('#auth-modal'))
       $('#unknown-error-alert').addClass('hide')
-      const userObject = forms.formToObject($("#auth-modal"))
+      const userObject = forms.formToObject($('#auth-modal'))
 
       const res = tv4.validateMultiple(userObject, formSchema)
       if (!res.valid) {
-        return forms.applyErrorsToForm($("#auth-modal"), res.errors)
+        return forms.applyErrorsToForm($('#auth-modal'), res.errors)
       }
       try {
         await new Promise(me.loginPasswordUser(userObject.emailOrUsername, userObject.password).then)
@@ -78,6 +80,10 @@ export default {
             forms.setErrorToProperty($('#auth-modal'), 'password', $.i18n.t('account_settings.wrong_password'))
             this.showingError = true
           }
+          if (errorID === 'temp-password-expired') {
+            forms.setErrorToProperty($('#auth-modal'), 'password', $.i18n.t('account_settings.temp_password_expired'))
+            this.showingError = true
+          }
           if (errorID === 'individuals-not-supported') {
             forms.setErrorToProperty($('#auth-modal'), 'emailOrUsername', $.i18n.t('login.individual_users_not_supported'))
             this.showingError = true
@@ -88,18 +94,23 @@ export default {
         }
       }
     },
-    async onClickGPlusLoginButton () {
-      await new Promise((resolve, reject) =>
-        application.gplusHandler.connect({
-          context: this,
-          success: resolve
-        }))
+    onClickGPlusLoginButton () {
+      application.gplusHandler.connect({
+        context: this,
+        elementId: 'google-login-button-signin',
+        success: (resp = {}) => {
+          this.postGoogleLoginClick({ resp })
+        }
+      })
+    },
+    async postGoogleLoginClick ({ resp = {} }) {
       try {
         const gplusAttrs = await new Promise((resolve, reject) =>
           application.gplusHandler.loadPerson({
             context: this,
             success: resolve,
-            error: reject
+            error: reject,
+            resp
           }))
 
         const existingUser = new User()
@@ -109,21 +120,42 @@ export default {
             success: resolve,
             error: function (user, jqxhr) {
               if (jqxhr.status === 409 && jqxhr.responseJSON.errorID && jqxhr.responseJSON.errorID === 'account-with-email-exists') {
-                noty({ text: $.i18n.t('login.accounts_merge_confirmation'), layout: 'topCenter', type: 'info', buttons: [
-                  { text: 'Yes', onClick: ($noty) => {
-                      $noty.close()
-                      loginOptions = { merge: true, email: gplusAttrs.email }
-                      resolve()
+                // auto-merge since we roster and create accounts for them
+                if (gplusAttrs.email?.includes(User.getNapervilleDomain())) {
+                  loginOptions = {
+                    merge: true,
+                    email: gplusAttrs.email
+                  }
+                  return resolve()
+                }
+                noty({
+                  text: $.i18n.t('login.accounts_merge_confirmation'),
+                  layout: 'topCenter',
+                  type: 'info',
+                  buttons: [
+                    {
+                      text: 'Yes',
+                      onClick: ($noty) => {
+                        $noty.close()
+                        loginOptions = {
+                          merge: true,
+                          email: gplusAttrs.email
+                        }
+                        resolve()
+                      }
+                    },
+                    {
+                      text: 'No',
+                      onClick: ($noty) => {
+                        $noty.close()
+                        reject(new Error('Clicked No'))
+                      }
                     }
-                  }, { text: 'No', onClick: ($noty) => {
-                      $noty.close()
-                      reject(...arguments)
-                    }
-                  }]
+                  ]
                 })
               } else {
-                errors.showNotyNetworkError(...arguments);
-                reject(...arguments)
+                errors.showNotyNetworkError(...arguments)
+                reject(new Error('Network Error'))
               }
             }
           }))
@@ -132,7 +164,7 @@ export default {
           me.loginGPlusUser(gplusAttrs.gplusID, {
             data: loginOptions,
             success: resolve,
-            error: function(res, jqxhr) {
+            error: function (res, jqxhr) {
               if (jqxhr.status === 401 && jqxhr.responseJSON.errorID && jqxhr.responseJSON.errorID === 'individuals-not-supported') {
                 forms.setErrorToProperty($('#auth-modal'), 'emailOrUsername', $.i18n.t('login.individual_users_not_supported'))
               } else {
@@ -147,7 +179,7 @@ export default {
         }
         this.$emit('done')
       } catch (e) {
-        console.log('signup error')
+        console.log('signup error', e)
       }
     },
     // for hoc students, join the classroom or set hoc options to show progress on dashboard
@@ -165,6 +197,26 @@ export default {
     },
     onClickCleverLoginButton () {
       logInWithClever()
+    },
+    async onClickClasslinkLoginButton () {
+      const handler = application.classlinkHandler
+      const { loggedIn } = await handler.logInWithEdlink()
+      if (!loggedIn) {
+        if (me.isStudent()) {
+          await this.finishLogin()
+        }
+        this.$emit('done')
+      } else {
+        noty({
+          text: 'Account already exists, logging you in...',
+          type: 'error',
+          layout: 'topCenter',
+          timeout: 5000,
+        })
+        setTimeout(() => {
+          window.location.href = '/'
+        }, 2000)
+      }
     }
   }
 }
@@ -177,21 +229,19 @@ export default {
 
     .socialSignOn(v-if="useSocialSignOn")
       .auth-network-logins()
-        a#gplus-login-btn(:disabled="!gplusLoaded" @click="onClickGPlusLoginButton")
+        a#google-login-button-signin(:disabled="!gplusLoaded" @click="onClickGPlusLoginButton" href="#")
           img(src="/images/ozaria/common/log-in-google-sso.svg" draggable="false")
           .gplus-login-wrapper
             .gplus-login-button
-        a#clever-login-btn(@click="onClickCleverLoginButton")
+        a#clever-login-btn(@click="onClickCleverLoginButton" href="#")
           img(src="/images/pages/modal/auth/clever_sso_button@2x.png" draggable="false")
+        a#classlink-login-btn(@click="onClickClasslinkLoginButton" href="#")
+          img(src="/images/pages/modal/auth/classlink-logo-text.png" draggable="false")
       .row.or-row
         .line
         p.or {{ $t("login.or") }}
         .line
     .auth-form-content
-
-      if showRequiredError
-        .alert.alert-success
-          span {{ $t("signup.required") }}
 
       #unknown-error-alert.alert.alert-danger.hide {{ $t("loading_error.unknown") }}
 
@@ -218,6 +268,7 @@ export default {
           #recover-account-wrapper
             a#link-to-recover(
               @click="$emit('clickRecoverModal')"
+              href="#"
             ) {{ $t("login.forgot_password") }}
         input#login-btn.btn.btn-block.btn-success(
           :value="$t('login.sign_in')"
@@ -228,7 +279,7 @@ export default {
         h3 {{ $t("login.logging_in") }}
 
     .extra-pane
-      a#switch-to-signup-btn(@click="$emit('switchToSignup')") {{ $t("login.auth_sign_up") }}
+      a#switch-to-signup-btn(@click="$emit('switchToSignup')" href="#") {{ $t("login.auth_sign_up") }}
       p {{ $t("login.already_have_account1") }}
       p {{ $t("login.already_have_account2") }}
 </template>
@@ -340,7 +391,7 @@ export default {
     }
   }
 
-  #gplus-login-btn > img, #clever-login-btn img {
+  #google-login-button-signin > img, #clever-login-btn img {
     height: 46px;
   }
 }

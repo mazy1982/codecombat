@@ -1,5 +1,6 @@
 import usersApi from 'core/api/users'
 import classroomsApi from 'core/api/classrooms'
+import adminApi from 'core/api/admin'
 
 export default {
   namespaced: true,
@@ -10,8 +11,17 @@ export default {
     },
 
     users: {
+      byId: {},
+      searchedResult: []
+    },
+
+    userNames: {
       byId: {}
-    }
+    },
+
+    userClassrooms: {
+      byId: {},
+    },
   },
 
   mutations: {
@@ -32,9 +42,28 @@ export default {
       users.forEach((user) => {
         Vue.set(state.users.byId, user._id, user)
       })
-    }
-  },
+    },
 
+    setSearchedResult: (state, users) => {
+      state.users.searchedResult = users
+    },
+    resetSearchedResult: (state) => {
+      state.users.searchedResult = []
+    },
+
+    setUserNames: (state, nameMap) => {
+      Object.keys(nameMap).forEach((userId) => {
+        Vue.set(state.userNames.byId, userId, nameMap[userId])
+      })
+    },
+
+    setClassroomNames: (state, nameMap) => {
+      Object.keys(nameMap).forEach(uId => {
+        Vue.set(state.userClassrooms.byId, uId, nameMap[uId])
+      })
+    },
+
+  },
   getters: {
     // Get user data for classroom members
     getClassroomMembers: (state) => (classroom) => {
@@ -48,8 +77,29 @@ export default {
       }
       return members
     },
+    getClassroomsByUserId: (state) => (id) => {
+      return state.userClassrooms.byId[id]
+    },
     getUserById: (state) => (id) => {
       return state.users.byId[id]
+    },
+    getUserSearchResult: (state) => {
+      return state.users.searchedResult
+    },
+    getUserNameById: (state) => (id) => {
+      const user = state.userNames.byId[id]
+      if(!user) return ''
+      let name = ''
+      if (user.firstName) {
+        name = user.name
+      }
+      if (user.lastName) {
+        name += ' ' + user.lastName
+      }
+      if (!name) {
+        name = user.name
+      }
+      return name
     }
   },
 
@@ -97,6 +147,43 @@ export default {
           // HACK: Disabling this user notification whilst keeping it in the console.
           // noty({ text: 'Fetch user failure' + e, type: 'error', layout: 'topCenter', timeout: 2000 })
         })
-    }
-  }
+    },
+
+    fetchUsersByNameOrSlug: ({ commit }, q) => {
+      adminApi.searchUser(q)
+        .then(res => {
+          commit('setSearchedResult', res)
+        })
+        .catch((e) => {
+          console.error(`Fetch user failure ${e.message}`)
+        })
+    },
+
+    fetchUserNamesById: ({ commit }, ids) => {
+      return usersApi
+        .fetchNamesForUser(ids)
+        .then(res => {
+          if (res) {
+            commit('setUserNames', res)
+          }
+        })
+        .catch(e => {
+          console.error(`Fetch user names failure ${e.message}`)
+        })
+    },
+
+    fetchClassroomNamesByUserId: ({ commit }, ids) => {
+      return usersApi
+        .fetchClassNamesForUser(ids)
+        .then(res => {
+          if (res) {
+            commit('setClassroomNames', res)
+          }
+        })
+        .catch(e => {
+          console.error(`Fetch classroom names failure ${e.message}`)
+          window.noty({ text: `Fetch classroom names failure ${e.message}`, type: 'error' })
+        })
+    },
+  },
 }

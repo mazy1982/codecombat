@@ -11,6 +11,7 @@
 const fs = require("fs-extra");
 const webpack = require("webpack");
 const path = require("path");
+const { publicFolderName } = require('./development/utils')
 
 // List of esper langauge plugins we want to move into the public directory.
 const targets = ["lua", "python", "coffeescript"];
@@ -20,10 +21,10 @@ const PWD = process.env.PWD || __dirname;  // __dirname might be undesirable if 
 const aether_webpack_config = {
   context: path.resolve(PWD),
   entry: {
-    aether: "./app/lib/aether/aether.coffee",
+    aether: "./app/lib/aether/aether",
     // We need to create the html parser ourselves and move it ourselves into
     // `/javascripts/app/vendor/aether-html.js`
-    html: "./app/lib/aether/html.coffee"
+    html: "./app/lib/aether/html"
   },
   output: {
     filename: "./aether/build/[name].js",
@@ -88,7 +89,7 @@ function copyLanguagesFromEsper(targets) {
         ),
         path.join(
           PWD,
-          "public",
+          publicFolderName,
           "javascripts",
           "app",
           "vendor",
@@ -104,7 +105,7 @@ function copyLanguagesFromEsper(targets) {
         ),
         path.join(
           PWD,
-          "public",
+          publicFolderName,
           "javascripts",
           "app",
           "vendor",
@@ -131,7 +132,7 @@ function copyLanguagesFromEsper(targets) {
   );
   const dest = path.join(
     PWD,
-    "public",
+    publicFolderName,
     "javascripts",
     "app",
     "vendor",

@@ -1,10 +1,6 @@
 extends /templates/base
 
 block content
-  if view.isAILeagueArena() && !features.china
-    a(href="/league")
-      img.ai-league-logo(src="/images/pages/league/hyperx-cobranded-logo.png")
-
   div#ladder-top
 
     if view.leagueType === 'course' && view.course
@@ -30,12 +26,17 @@ block content
             span.spl - Arena
 
     div#level-column
+      if view.levelBanner
+        img(src=`/file/${view.levelBanner}` alt=`${i18n(view.level.attributes, 'name')}`)
+      else if view.levelDescription
+        img(src="/images/pages/play/ladder/multiplayer_notext.jpg" alt=`${i18n(view.level.attributes, 'name')}`)
+        span.dynamic-level-name= i18n(view.level.attributes, 'name')
       if view.levelDescription
         div!= view.levelDescription
 
       if view.leagueType === 'clan'
         h1.league-header
-          a(href='/clans/' + view.league.id)= view.league.get('displayName') || view.league.get('name')
+          a(href='/clans/' + view.league.id)= view.tournamentDisplayName || view.league.get('displayName') || view.league.get('name')
           span.spl(data-i18n="ladder.league") League
 
     if view.level.get('name') === 'Greed'
@@ -104,6 +105,8 @@ block content
 
 
     #tournament-status
+      if !view.tournamentState && view.globalAILeagueEnds
+         .ai-league-info(data-i18n="ladder.ai_league_ends", data-i18n-options={ time: view.globalAILeagueEnds })
       if view.tournamentState == 'initializing'
         #tournament-status
           p
@@ -111,21 +114,19 @@ block content
       else if view.tournamentState == 'starting'
         #tournament-status
           p
-            span(data-i18n="ladder.tournament_ends")
-            span.spl#tournament-time-left= view.tournamentTimeLeftString
-            span(data-i18n="ladder.tournament_started")
-            span.spl#tournament-time-elapsed= view.tournamentTimeElapsedString
-      else if view.tournamentState == 'ranking'
+            span(data-i18n="ladder.tournament_started", data-i18n-options={timeElapsed: view.tournamentTimeElapsedString})
+            span(data-i18n="ladder.tournament_ends", data-i18n-options={timeLeft: view.tournamentTimeLeftString})
+      else if ['ranking', 'waiting', 'abandoned'].includes(view.tournamentState)
         p
-          span(data-i18n="ladder.tournament_ended")
-          span.spl#tournament-time-left= view.tournamentTimeLeftString
-          span(data-i18n="ladder.tournament_results_published")
-          span.spl#tournament-results-time-left= view.tournamentResultsTimeLeftString
+          span(data-i18n="ladder.tournament_ended", data-i18n-options={timeLeft: view.tournamentTimeLeftString})
+          if view.tournament.get('resultsDate')
+            span(data-i18n="ladder.tournament_results_published", data-i18n-options={timeLeft: view.tournamentResultsTimeLeftString})
+          else
+            span(data-i18n="ladder.tournament_results_wait_publish")
       else if view.tournamentEnd
         if view.tournamentTimeLeftString
           p
-            span(data-i18n="ladder.tournament_ended")
-            span.spl#tournament-time-left= view.tournamentTimeLeftString
+            span(data-i18n="ladder.tournament_ended", data-i18n-options={timeLeft: view.tournamentTimeLeftString})
         else
           p(data-i18n="ladder.tournament_end_desc")
 
@@ -136,10 +137,6 @@ block content
             div.column.column-4
               a.btn.btn-illustrated.btn-block.btn-lg.btn-success.play-button(data-team='humans')
                 span(data-i18n="common.play")
-            div.column.column-2
-              a.btn.btn-illustrated.btn-block.btn-lg.btn-info.spectate-button(href='/play/spectate/' + view.level.get('slug') + (view.league ? "?league=" + view.league.id : ""))
-                span.glyphicon.glyphicon-eye-open
-                span.spl(data-i18n="play.spectate")
             if !window.features.chinaUx
               div.column.column-2
                 a.btn.btn-illustrated.btn-block.btn-lg.btn-info(data-team='humans' href="https://www.youtube.com/watch?v=niKXOofTckEor" target="_blank")
@@ -150,10 +147,11 @@ block content
               div.column.column-3
                 a(class="play-button btn btn-illustrated btn-block btn-lg " + (team.id === 'ogres' ? 'btn-primary' : 'btn-danger'), data-team=team.id)
                   span(data-i18n="play_level.play_as_" + team.id)
-            div.column.column-2
-              a.btn.btn-illustrated.btn-block.btn-lg.btn-info.spectate-button(href='/play/spectate/' + view.level.get('slug') + (view.league ? "?league=" + view.league.id : ""))
-                span.glyphicon.glyphicon-eye-open
-                span.spl(data-i18n="play.spectate")
+            if view.ladderTab
+              div.column.column-2
+                a.btn.btn-illustrated.btn-block.btn-lg.btn-info.spectate-button(href='/play/spectate/' + view.level.get('slug') + (view.league ? "?league=" + view.league.id : ""))
+                  span.glyphicon.glyphicon-eye-open
+                  span.spl(data-i18n="play.spectate")
         div.column.column-3
           if realUltimatePower
             // This button could consume a lot of server resources
@@ -162,24 +160,40 @@ block content
           else if !me.isTeacher() && !me.isAnonymous() && !me.isRegisteredForAILeague() && view.isAILeagueArena()
             a.btn.btn-illustrated.btn-block.btn-lg.btn-primary.register-for-ai-league-button(href="/league?registering=true")
               span(data-i18n="league.register_for_ai_league")
-    else if view.tournament && ['ranking', 'ended'].indexOf(view.tournamentState) !== -1
+    else if view.tournament && ['ranking', 'waiting', 'abandoned', 'ended'].indexOf(view.tournamentState) !== -1
       div#ladder-action-columns.row
         if !features.china
           div.column.column-4
             a.btn.btn-illustrated.btn-block.btn-lg.btn-info.play-arena-button(href="/play/ladder/"+view.levelID)
               span(data-i18n="courses.play_arena")
-        div.column.column-2
-          a.btn.btn-illustrated.btn-block.btn-lg.btn-info.spectate-button(href='/play/spectate/' + view.level.get('slug') + '?tournament=' + view.tournamentId + (view.league ? "&league=" + view.league.id : ""))
-            span.glyphicon.glyphicon-eye-open
-            span.spl(data-i18n="play.spectate")
-        if me.isAdmin() && view.tournamentState == "ranking"
+        if ['waiting', 'abandoned'].includes(view.tournamentState) && view.league && (me.get('_id') === view.league.get('ownerID') || me.isAdmin())
+          div.column.column-2
+            a.btn.btn-illustrated.btn-block.btn-lg.btn-success.publish-button
+              span(data-i18n="tournament.publish_results")
+        if me.isAdmin() && (['ranking', 'waiting', 'abandoned'].includes(view.tournamentState))
           div.column.column-2
             a.btn.btn-illustrated.btn-block.btn-lg.btn-info.early-results-button(href='#results')
               span.glyphicon.glyphicon-star
               span.spl(data-i18n="tournament.view_results")
-
-
-
+    if view.level.isType('ladder')
+      div#spectate-row.row
+        span(data-i18n="play.spectate")
+        span :
+        div.spectate-players
+          input(type='search' id='spectate-player-1' list="spectate-players-1" autocomplete="off")
+          datalist(id='spectate-players-1')
+            each rk in view.leaderboardRankings
+              option(value=`${rk[2]}: ${rk[3]}`)
+        span VS.
+        div.spectate-players
+          input(type='search' id='spectate-player-2' list="spectate-players-2" autocomplete="off")
+          datalist(id='spectate-players-2')
+            each rk in view.leaderboardRankings
+              option(value=`${rk[2]}: ${rk[3]}`)
+        a.btn.btn-illustrated.btn-info.new-spectate-button
+          span.glyphicon.glyphicon-eye-open
+          span.spl(data-i18n="hackstack.view")
+      
   if view.level.isType('ladder')
     if view.winners
       ul.nav.nav-pills
@@ -191,13 +205,16 @@ block content
       .inline-simulation-stats
         #simulate-tab-view
   else
+    if !me.isAdmin()
+      .inline-simulation-stats
+        #simulate-tab-view
     ul.nav.nav-pills
       li.active
         a(href="#ladder", data-toggle="tab", data-i18n="general.ladder") Ladder
       if !me.get('anonymous')
         li
           a(href="#my-matches", data-toggle="tab", data-i18n="ladder.my_matches") My Matches
-        if view.leagueType !== 'course'
+        if view.leagueType !== 'course' && me.isAdmin()
           li
             a(href="#simulate", data-toggle="tab", data-i18n="ladder.simulate") Simulate
       if view.winners
@@ -273,8 +290,9 @@ block content
         #new-leaderboard-view
       .tab-pane.well#my-matches
         #my-matches-tab-view
-      .tab-pane.well#simulate
-        #simulate-tab-view
+      if me.isAdmin()
+        .tab-pane.well#simulate
+          #simulate-tab-view
 
       if view.level.get('name') === 'Greed' || view.level.get('name') === 'Criss-Cross' || view.level.get('name') === 'Zero Sum'
         .tab-pane.well#winners

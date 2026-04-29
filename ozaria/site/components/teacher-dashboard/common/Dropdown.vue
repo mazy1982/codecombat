@@ -1,26 +1,36 @@
 <script>
-  export default {
-    props: {
-      labelText: {
-        required: true,
-        type: String
-      },
-      options: {
-        type: Array,
-        default: () => []
-      }
-    }
-  }
+export default {
+  props: {
+    labelText: {
+      required: true,
+      type: String,
+    },
+    options: {
+      type: Array,
+      default: () => [],
+    },
+    displayOptions: {
+      type: Array,
+      default: () => [],
+    },
+    value: {
+      type: String,
+      default: () => this.options[0],
+    },
+  },
+}
 </script>
 <template>
   <div>
     <label>{{ labelText }}</label>
     <select @change="$emit('change', $event)">
       <option
-        v-for="option in options"
+        v-for="(option, index) in options"
         :key="option"
+        :value="option"
+        :selected="option === value"
       >
-        {{ option }}
+        {{ displayOptions?.[index] || option }}
       </option>
     </select>
   </div>

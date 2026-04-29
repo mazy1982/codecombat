@@ -1,13 +1,13 @@
 
 <script>
-  export default Vue.extend({
-    props: {
-      withOrText: {
-        type: Boolean,
-        default: true
-      }
+export default Vue.extend({
+  props: {
+    withOrText: {
+      type: Boolean,
+      default: true
     }
-  })
+  }
+})
 </script>
 
 <template>
@@ -37,7 +37,7 @@
   flex-direction: row;
   align-items: center;
   margin-bottom: 10px;
-  margin-top: 21px;
+  margin-top: 10px;
   span {
     font-family: Work Sans;
     font-size: 28px;

@@ -1,4 +1,4 @@
-<script>
+<script> // eslint-disable-line vue/multi-word-component-names
 /**
  * TODO: Extend or create an alternative leaderboard compatible with teams (humans/ogres)
  * TODO: This leaderboard is not only shown on the league url but also the ladder url.
@@ -9,7 +9,7 @@ export default {
   props: {
     rankings: {
       type: Array,
-      default: []
+      default: function () { return [] }
     },
     scoreType: {
       type: String,
@@ -30,12 +30,19 @@ export default {
   },
 
   methods: {
+    nameForDisplay (row) {
+      let fullName
+      if (row.fullName) {
+        fullName = row.fullName.replace(/^Anonymous/, $.i18n.t('general.player'))
+      }
+      return fullName || row.creatorName || $.i18n.t('play.anonymous')
+    },
     scoreForDisplay (row) {
       if (this.scoreType === 'codePoints') {
         return row.totalScore.toLocaleString()
       }
       let score = (((row.leagues || []).find(({ leagueID }) => leagueID === this.clanId) || {}).stats || {}).totalScore || row.totalScore
-      if (/(Bronze|Silver|Gold|Platinum|Diamond) AI/.test(row.creatorName) && score == row.totalScore) {
+      if (/(Bronze|Silver|Gold|Platinum|Diamond) AI/.test(row.creatorName) && score === row.totalScore) {
         // Hack: divide display score by 2, since the AI doesn't have league-specific score
         score /= 2
       }
@@ -48,9 +55,8 @@ export default {
 
     getClanName (row) {
       const firstClan = (row.creatorClans || [])[0] || {}
-      let name = firstClan.displayName || firstClan.name || ""
-      if (!/[a-z]/.test(name))
-        name = utils.titleize(name)  // Convert any all-uppercase clan names to title-case
+      let name = firstClan.displayName || firstClan.name || ''
+      if (!/[a-z]/.test(name)) { name = utils.titleize(name) } // Convert any all-uppercase clan names to title-case
       return name
     },
 
@@ -112,7 +118,7 @@ export default {
             td.code-language-cell(:style="`background-image: url(/images/common/code_languages/${row.submittedCodeLanguage}_icon.png)`" :title="row.submittedCodeLanguage")
             td.rank-cell {{ row.rank || rank + 1 }}
             td.score-cell {{ scoreForDisplay(row) }}
-            td(:class="'name-col-cell' + ((new RegExp('(Bronze|Silver|Gold|Platinum|Diamond) AI')).test(row.creatorName) ? ' ai' : '')") {{ row.fullName || row.creatorName || $t("play.anonymous") }}
+            td(:class="'name-col-cell' + ((new RegExp('(Bronze|Silver|Gold|Platinum|Diamond) AI')).test(row.creatorName) ? ' ai' : '')") {{ nameForDisplay(row) }}
             td(colspan=4).clan-col-cell
               a(:href="`/league/${getClan(row).slug || getClan(row)._id}`") {{ getClanName(row) }}
             td {{ getAgeBracket(row) }}

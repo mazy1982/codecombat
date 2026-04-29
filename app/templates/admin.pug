@@ -48,6 +48,18 @@ block content
 
   if me.isOnlineTeacher() && !me.isAdmin()
     div.text-center Use the search box above to find and administer student accounts.
+  else if me.isParentAdmin() && !me.isAdmin()
+    p Set if admin is currently online / offline:
+    div.btn-group.btn-group-toggle#toggle-admin-availability(data-toggle="buttons")
+      label.btn.btn-secondary(data-value="on" class=`${parentAdminUpdateInProgress ? 'disabled' : ''} ${parentAdminAvailabilityStatus == 'on' ? 'active' : ''}`)
+        input(type="radio" name="options" autocomplete="off" :)
+        | Online
+      label.btn.btn-secondary(data-value="off" class=`${parentAdminUpdateInProgress ? 'disabled' : ''} ${parentAdminAvailabilityStatus == 'off' ? 'active' : ''}`)
+        input(type="radio" name="options" autocomplete="off")
+        | Offline
+      label.btn.btn-secondary(data-value="by-schedule" class=`${parentAdminUpdateInProgress ? 'disabled' : ''} ${parentAdminAvailabilityStatus == 'by-schedule' ? 'active' : ''}`)
+        input(type="radio" name="options" autocomplete="off")
+        | By Schedule
   else if !me.isAdmin()
     div.text-center You must be logged in as an admin to view this page.
   else
@@ -82,6 +94,10 @@ block content
         a(href="/admin/sub-cancellations") Subscription Cancellations
       li
         a(href="/admin/demo-requests") Teacher Demo Requests
+      li
+        a(href="/admin/low-usage-users") Low Usage Users
+      li
+        a(href="/admin/activation-code-usage") Activation Code Usage
     p
       button.classroom-progress-csv.btn.btn-sm.btn-success Classroom Progress CSV
       input.classroom-progress-class-code(type=text placeholder="<class code>")
@@ -100,6 +116,11 @@ block content
         a(href="/admin/skipped-contacts") Sales — Contacts skipped by sales automation scripts
       li
         a(href="/admin/partial-unit-release") Partial Unit Release
+      li
+        a(href="javascript:void(0)" id="maintenance-mode") Maintenance mode
+      li
+        a(href="javascript:void(0)" id="teacher-license-code") Teacher license code
+
 
     hr
     h3 URL query parameters for *this page*
@@ -140,7 +161,7 @@ block content
         input#months.form-control(name="months", type="number", min=1)
       .form-group
         label(for="endDate") Expiration Date
-        input#endDate.form-control(type="date" name="endDate" value=moment.timezone().tz(view.timeZone).add(1, 'year').format('YYYY-MM-DD'))
+        input#endDate.form-control(type="date" name="endDate" value=view.prepaidEndDate)
 
       br
       a#terminal-create.btn.btn-default Create Terminal Subscription Code

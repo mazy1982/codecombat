@@ -3,17 +3,20 @@ export default {
   props: {
     doneRegistering: {
       type: Boolean,
-      required: true
+      required: true,
     },
     isClanCreator: {
-      required: true
+      required: true,
+      type: Function,
     },
     onHandleJoinCTA: {
-      required: true
+      required: true,
+      type: Function,
     },
     championshipActive: {
-      type: Boolean
-    }
+      type: Boolean,
+      required: true,
+    },
   },
 }
 </script>
@@ -21,17 +24,27 @@ export default {
 <template>
   <div class="section-first-cta">
     <div class="row flex-row text-center">
-      <p class="subheader2" style="max-width: 800px;">
+      <p
+        class="subheader2"
+        style="max-width: 800px;"
+      >
+        <!-- eslint-disable vue/no-v-html -->
         <span v-if="championshipActive">
-          {{ $t('league.championship_summary', { championshipArena: $t('league.tundra_tower'), championshipMonth: $t('calendar.april'), championshipType: $t('league.clash') }) }}
+          <span v-html="$t('league.championship_summary', { championshipArena: $t('league.golden_goal'), championshipMonth: $t('calendar.december'), championshipType: $t('league.cup') })" />
         </span>
         <span v-else>
           {{ $t('league.summary') }}
         </span>
       </p>
     </div>
-    <div v-if="!doneRegistering && !isClanCreator()" class="row flex-row text-center xs-m-0">
-      <a class="btn btn-large btn-primary btn-moon" @click="onHandleJoinCTA">{{ $t('league.join_now') }}</a>
+    <div
+      v-if="!doneRegistering && !isClanCreator()"
+      class="row flex-row text-center xs-m-0"
+    >
+      <a
+        class="btn btn-large btn-primary btn-moon"
+        @click="onHandleJoinCTA"
+      >{{ $t('league.join_now') }}</a>
     </div>
   </div>
 </template>

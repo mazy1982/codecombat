@@ -9,6 +9,12 @@ import LayoutCenterContent from '../../common/LayoutCenterContent'
 const utils = require('core/utils')
 
 module.exports = Vue.extend({
+
+  components: {
+    'cinematic-canvas': CinematicCanvas,
+    'layout-chrome': LayoutChrome,
+    'layout-center-content': LayoutCenterContent
+  },
   props: {
     cinematicIdOrSlug: {
       type: String,
@@ -17,6 +23,11 @@ module.exports = Vue.extend({
     userOptions: {
       type: Object,
       required: false
+    },
+    levelNumber: {
+      type: [Number, String],
+      required: false,
+      default: null,
     }
   },
 
@@ -24,10 +35,26 @@ module.exports = Vue.extend({
     cinematicData: null
   }),
 
-  components: {
-    'cinematic-canvas': CinematicCanvas,
-    'layout-chrome': LayoutChrome,
-    'layout-center-content': LayoutCenterContent
+  computed: {
+    ...mapGetters({
+      soundOn: 'layoutChrome/soundOn',
+      getLevelNumber: 'gameContent/getLevelNumber'
+    }),
+    title () {
+      if (this.cinematicData === null) {
+        return ''
+      }
+      const id = this.cinematicData._id
+      const levelNumber = this.getLevelNumber(id)
+      const levelName = utils.i18n(this.cinematicData, 'displayName') || utils.i18n(this.cinematicData, 'name')
+      return `${levelNumber ? `${levelNumber}.` : ''} ${levelName}`
+    }
+  },
+
+  watch: {
+    soundOn () {
+      this.handleSoundMuted()
+    }
   },
 
   async created () {
@@ -35,31 +62,19 @@ module.exports = Vue.extend({
     this.handleSoundMuted()
   },
 
-  computed: {
-    ...mapGetters({
-      soundOn: 'layoutChrome/soundOn'
-    }),
-    title () {
-      if (this.cinematicData === null) {
-        return ''
-      }
-      return utils.i18n(this.cinematicData, 'displayName') || utils.i18n(this.cinematicData, 'name')
-    }
-  },
-
   methods: {
     completedHandler (cinematicTracking) {
       this.$emit('completed', this.cinematicData, cinematicTracking)
     },
 
-    async getCinematicData() {
+    async getCinematicData () {
       try {
         this.cinematicData = await getCinematic(this.cinematicIdOrSlug)
       } catch (e) {
         console.error(e)
         return noty({
-          text: `Error finding cinematic '${this.cinematicIdOrSlug}'.`,
-          type:'error',
+          text: $.i18n.t('cinematic.error_find', { slug: this.cinematicIdOrSlug }),
+          type: 'error',
           timeout: 3000
         })
       }
@@ -72,12 +87,6 @@ module.exports = Vue.extend({
         Howler.mute(true)
       }
     }
-  },
-
-  watch: {
-    soundOn() {
-      this.handleSoundMuted()
-    }
   }
 })
 </script>
@@ -89,10 +98,10 @@ module.exports = Vue.extend({
     <layout-center-content>
       <cinematic-canvas
         v-if="cinematicData"
-        v-on:completed="completedHandler"
-        :cinematicData="cinematicData"
-        :userOptions="userOptions"
-        />
+        :cinematic-data="cinematicData"
+        :user-options="userOptions"
+        @completed="completedHandler"
+      />
     </layout-center-content>
   </layout-chrome>
 </template>

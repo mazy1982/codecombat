@@ -1,4 +1,4 @@
-import { Howl, Howler } from 'howler'
+import { Howl } from 'howler'
 
 export default {
   namespaced: true,
@@ -203,7 +203,7 @@ export default {
      *
      * @throws {Error} when invalid track specified
      */
-    stopTrack({ state, dispatch }, opts) {
+    stopTrack ({ state, dispatch }, opts) {
       let unload
       let track
 
@@ -246,7 +246,7 @@ export default {
 
         const sound = getters.getSoundById(id)
         if (!sound) {
-          throw new Error('Sound ID does not exist')
+          throw new Error(`Sound ID does not exist: ${id}`)
         }
 
         // Creates a new overlapping oneshot sound instance.
@@ -271,6 +271,11 @@ export default {
 
       if (unique && state.unique.keys.has(unique)) {
         return
+      }
+
+      if (track && track === 'background' && !me.get('music', true)) {
+        // Take this opportunity to mute the background music track if we me.get('music') has been disabled
+        dispatch('muteTrack', track)
       }
 
       // Default to playing sounds immediately upon load but allow
@@ -321,7 +326,7 @@ export default {
     pauseSound ({ getters }, id) {
       const sound = getters.getSoundById(id)
       if (!sound) {
-        throw new Error('Sound ID does not exist')
+        throw new Error(`Sound ID does not exist: ${id}`)
       }
 
       sound.pause()
@@ -483,7 +488,6 @@ export default {
       return Promise.all(volumes)
     },
 
-
     /**
      * Sets volume of specified sound
      *
@@ -498,7 +502,7 @@ export default {
     setSoundVolume ({ getters }, { id, volume }) {
       const sound = getters.getSoundById(id)
       if (!sound) {
-        throw new Error('Sound ID does not exist')
+        throw new Error(`Sound ID does not exist: ${id}`)
       }
 
       sound.volume(volume)
@@ -596,7 +600,7 @@ export default {
     muteSound ({ getters }, id) {
       const sound = getters.getSoundById(id)
       if (!sound) {
-        throw new Error('Sound ID does not exist')
+        throw new Error(`Sound ID does not exist: ${id}`)
       }
 
       sound.mute(true)
@@ -616,7 +620,7 @@ export default {
     unmuteSound ({ getters }, id) {
       const sound = getters.getSoundById(id)
       if (!sound) {
-        throw new Error('Sound ID does not exist')
+        throw new Error(`Sound ID does not exist: ${id}`)
       }
 
       sound.mute(false)

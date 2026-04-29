@@ -5,15 +5,9 @@ export default {
   namespaced: true,
 
   state () {
-    // TODO: Currently saving volume to session instead of database.
-    // TODO: Investigate using vuex-persist for caching state.
-    let cachedSound
-    if (window.localStorage) {
-      cachedSound = window.localStorage.getItem('layoutChrome/soundOn')
-    }
-
     return {
-      soundOn: cachedSound !== 'false',
+      // TODO: sync this from store me module instead of the actual Backbone object
+      soundOn: me.get('volume', true) > 0,
       // TODO: Move this into a dedicated courseInstance, and course module like the currentCampaignId in campaigns module
       currentCourseInstanceId: null,
       currentCourseId: null
@@ -23,9 +17,11 @@ export default {
   mutations: {
     toggleSound (state) {
       state.soundOn = !state.soundOn
-      if (window.localStorage) {
-        window.localStorage.setItem('layoutChrome/soundOn', state.soundOn)
-      }
+
+      // Also propagate this update to older Backbone/User volume settings
+      me.set('volume', state.soundOn ? 1 : 0)
+      me.patch()
+      Backbone.Mediator.publish('level:set-volume', { volume: me.get('volume') })
     },
 
     setUnitMapUrlDetails (state, payload) {
@@ -46,12 +42,15 @@ export default {
       if (!campaign) {
         return undefined
       }
-      const url = urls.courseWorldMap({
-        courseId: courseId,
-        courseInstanceId: courseInstanceId,
+      let url = urls.courseWorldMap({
+        courseId,
+        courseInstanceId,
         campaignId: campaign.slug,
         codeLanguage: utils.getQueryVariable('codeLanguage')
       })
+      if (utils.showOzaria() && !url.includes('ozaria')) {
+        url = url.replace(/^\/play\//, '/play/ozaria/')
+      }
       return url
     }
   },

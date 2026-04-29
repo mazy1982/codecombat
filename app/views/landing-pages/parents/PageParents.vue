@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/no-v-html -->
 <template>
   <div id="parent-page">
     <!-- START Modals -->
@@ -10,7 +11,7 @@
     -->
     <modal-timetap-schedule
       v-if="type !== 'parents'"
-      :show="showTimetapModal" 
+      :show="showTimetapModal"
       :class-type="timetapModalClassType"
       @close="showTimetapModal = false"
       @booked="onClassBooked"
@@ -21,578 +22,851 @@
       @close="showTimetapConfirmationModal = false"
     />
     <!-- END Modals -->
-
-    <div class="row" id="top-banner" v-if="type === 'live-classes'">
-      <div class="row">
-        <div class="col-xs-12">
-          <span>Kids: show this to your parents to get your free coding class and premium heroes!</span>
+    <slot name="contents">
+      <!-- make this component extendable so we can use the code defined here on modal openings -->
+      <div
+        v-if="type === 'live-classes'"
+        id="top-banner"
+        class="row"
+      >
+        <div class="row">
+          <div class="col-xs-12">
+            <span>{{ $t('parents_landing_1.kids_message') }}</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <page-parents-jumbotron :type="type" :mainCtaButtonText="mainCtaButtonText(0)" :mainCtaSubtext="mainCtaSubtext(0)" :trialClassExperiment="trialClassExperiment" :brightchampsExperiment="brightchampsExperiment" @cta-clicked="onClickMainCta"/>
+      <page-parents-jumbotron
+        :type="type"
+        :main-cta-button-text="mainCtaButtonText(0)"
+        :main-cta-subtext="mainCtaSubtext(0)"
+        :trial-class-experiment="trialClassExperiment"
+        :brightchamps-experiment="brightchampsExperiment"
+        @cta-clicked="onClickMainCta"
+      />
 
-    <div class="container-power-gameplay">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12">
-            <!-- Margin added quickly to line up graphics -->
-            <div class="row" style="margin-top: 90px;">
-              <div class="col-lg-12 text-center">
-                <h2>
-                  CodeCombat combines the power of gameplay and personalized instruction to deliver online coding classes that your child will look forward to every week!
-                </h2>
+      <div class="container-power-gameplay">
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12">
+              <!-- Margin added quickly to line up graphics -->
+              <div
+                class="row"
+                style="margin-top: 90px;"
+              >
+                <div class="col-lg-12 text-center">
+                  <h2>
+                    {{ $t('parents_landing_1.codecombat_intro') }}
+                  </h2>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="row">
-          <div class="col-lg-12 trust-logos">
-            <div class="flex-spacer">
-              <img
+          <div class="row">
+            <div class="col-lg-12 trust-logos">
+              <div class="flex-spacer">
+                <img
                   src="/images/pages/parents/cse_top_pick.png"
                   class="cse-top-pick"
-              />
-            </div>
-
-            <div class="flex-spacer">
-              <div class="cs-for-all-container">
-                <img
-                  src="/images/pages/parents/cs_for_all_member.png"
-                />
+                >
               </div>
-            </div>
 
-            <div class="flex-spacer">
-              <div class="codie-logo-container">
-                <img
+              <div class="flex-spacer">
+                <div class="cs-for-all-container">
+                  <img
+                    src="/images/pages/parents/cs_for_all_member.png"
+                  >
+                </div>
+              </div>
+
+              <div class="flex-spacer">
+                <div class="codie-logo-container">
+                  <img
                     src="/images/pages/parents/2017_codie_award.png"
-                />
+                  >
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="container-graphic-spacer sm-min-height-auto blue-fox-spacer">
-    </div>
+      <div class="container-graphic-spacer sm-min-height-auto blue-fox-spacer" />
 
-    <div class="container">
-      <div class="row">
-        <h1 class="text-center pixelated" style="padding: 0 5px;">Remote Learning That Works</h1>
-        <div class="col-xs-12 video-container">
-          <div style="position: relative; padding-top: 56.25%;"><iframe :src="'https://iframe.videodelivery.net/' + videoId + '?preload=true&poster=https://videodelivery.net/' + videoId + '/thumbnails/thumbnail.jpg%3Ftime%3D2s&defaultTextTrack=en'" style="border: none; position: absolute; top: 0; height: 100%; width: 100%;"  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen="true" title="CodeCombat online classes video"></iframe></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="container-graphic-spacer">
       <div class="container">
         <div class="row">
-          <div class="col-xs-12" style="margin: 30px 0 20px;">
-            <img
+          <h1
+            class="text-center pixelated"
+            style="padding: 0 5px;"
+          >
+            {{ $t('parents_landing_1.remote_learning_works') }}
+          </h1>
+          <div class="col-xs-12 video-container">
+            <div style="position: relative; padding-top: 56.25%;">
+              <iframe
+                :src="'https://iframe.videodelivery.net/' + videoId + '?preload=true&poster=https://videodelivery.net/' + videoId + '/thumbnails/thumbnail.jpg%3Ftime%3D2s&defaultTextTrack=en'"
+                style="border: none; position: absolute; top: 0; height: 100%; width: 100%;"
+                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                allowfullscreen="true"
+                title="CodeCombat online classes video"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="container-graphic-spacer">
+        <div class="container">
+          <div class="row">
+            <div
+              class="col-xs-12"
+              style="margin: 30px 0 20px;"
+            >
+              <img
                 class="img-responsive"
                 src="/images/pages/parents/graphic_09.png"
                 alt="hero moving along a path"
                 loading="lazy"
                 style="max-width: 290px;"
-            />
+              >
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="container-background-invest-heading">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12">
-            <h1 class="text-center pixelated">
-              Invest in Your Child’s Future While They Have Fun!
-            </h1>
+      <div class="container-background-invest-heading">
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12">
+              <h1 class="text-center pixelated">
+                {{ $t('parents_landing_1.invest_in_future') }}
+              </h1>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="container-child-future">
-      <div class="container">
-        <div class="row row-eq-height xs-pb-50">
-          <div class="col-md-6 col-sm-12">
-            <img
-              src="/images/pages/parents/personal_learning.png"
-              alt="teacher and student playing codecombat"
-              loading="lazy"
-            />
+      <div class="container-child-future">
+        <div class="container">
+          <div class="row row-eq-height xs-pb-50">
+            <div class="col-md-6 col-sm-12">
+              <img
+                src="/images/pages/parents/personal_learning.png"
+                alt="teacher and student playing codecombat"
+                loading="lazy"
+              >
+            </div>
+            <div class="col-md-6 col-sm-12">
+              <h3>{{ $t('parents_landing_1.personalized_learning_header') }}</h3>
+              <p>{{ $t('parents_landing_1.personalized_learning_details') }}</p>
+            </div>
           </div>
-          <div class="col-md-6 col-sm-12">
-            <h3>Personalized Learning</h3>
-            <p>Our dedicated teachers offer individualized attention through a structured curriculum.  Your child will become a confident life-long coder as they conquer challenges and celebrate successes together!</p>
-          </div>
-        </div>
 
-        <div class="row row-eq-height xs-pb-50">
-          <div class="col-md-6 col-md-push-6 col-sm-12 ">
-            <img class="power-of-play-gif" src="/images/pages/parents/power_of_play_capstone.gif" loading="lazy" />
+          <div class="row row-eq-height xs-pb-50">
+            <div class="col-md-6 col-md-push-6 col-sm-12 ">
+              <img
+                class="power-of-play-gif"
+                src="/images/pages/parents/power_of_play_capstone.gif"
+                loading="lazy"
+              >
+            </div>
+            <div class="col-md-6 col-sm-12 col-md-pull-6">
+              <h3>{{ $t('parents_landing_1.power_of_play_header') }}</h3>
+              <p>{{ $t('parents_landing_1.power_of_play_details') }}</p>
+            </div>
           </div>
-          <div class="col-md-6 col-sm-12 col-md-pull-6">
-            <h3>The Power of Play</h3>
-            <p>Our students type real Python and JavaScript while playing a game from beginning to end! Our engaging curriculum ensures that you’ll never have to force your child to show up to class. We promise.</p>
-          </div>
-        </div>
 
-        <div class="row row-eq-height">
-          <div class="col-md-6 col-sm-12">
-            <img src="/images/pages/parents/personal_learning_3.png" loading="lazy" />
-          </div>
-          <div class="col-md-6 col-sm-12">
-            <h3>Early Exposure to Coding</h3>
-            <p>Coding is a highly sought-after job skill, and this demand will only grow. Exposing your child to coding at an early age increases the chance that they’ll pursue Computer Science later in life.</p>
+          <div class="row row-eq-height">
+            <div class="col-md-6 col-sm-12">
+              <img
+                src="/images/pages/parents/personal_learning_3.png"
+                loading="lazy"
+              >
+            </div>
+            <div class="col-md-6 col-sm-12">
+              <h3>{{ $t('parents_landing_1.early_coding_exposure') }}</h3>
+              <p>{{ $t('parents_landing_1.early_coding_exposure_details') }}</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <button-main-cta :buttonText="mainCtaButtonText(1)" :subtext="mainCtaSubtext(1)" @click="onClickMainCta" />
+      <button-main-cta
+        :button-text="mainCtaButtonText(1)"
+        :subtext="mainCtaSubtext(1)"
+        @click="onClickMainCta"
+      />
 
-    <div class="container-graphic-spacer">
-      <div class="container">
-        <div class="row">
-          <div class="col-xs-12" style="margin: 30px 0 20px;">
-            <img
+      <div class="container-graphic-spacer">
+        <div class="container">
+          <div class="row">
+            <div
+              class="col-xs-12"
+              style="margin: 30px 0 20px;"
+            >
+              <img
                 class="img-responsive"
                 src="/images/pages/parents/graphic_03_speech.svg"
                 alt="hero moving along a path based on code commands"
                 loading="lazy"
-            />
+              >
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="container-parent-testimonial">
-      <div class="container">
-        <div class="row">
-          <div class="col-md-6">
-            <img src="/images/pages/parents/quote.svg" alt="quote" width=60 height=73 loading="lazy"/>
-            <p>Even though the class starts every Saturday at 7am, my son is so excited that he wakes up before me! CodeCombat creates a pathway for my son to advance his coding skills.</p>
-            <p><b>Latthaphon Pohpon, Parent</b></p>
-          </div>
-          <div class="col-md-6">
-            <img
+      <div class="container-parent-testimonial">
+        <div class="container">
+          <div class="row">
+            <div class="col-md-6">
+              <img
+                src="/images/pages/parents/quote.svg"
+                alt="quote"
+                width="60"
+                height="73"
+                loading="lazy"
+              >
+              <p>{{ $t('parents_landing_1.quote_1') }}</p>
+              <p><b>{{ $t('parents_landing_1.parent_name') }}</b></p>
+            </div>
+            <div class="col-md-6">
+              <img
                 class="img-responsive"
                 src="/images/pages/parents/ten_testimonial.png"
                 alt="kid on computer playing codecombat looking at camera"
                 loading="lazy"
-            />
+              >
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Added some custom inline styles specific to this graphic -->
-    <div class="pet-following-yellow-dotted">
-      <div class="container">
-        <div class="row">
-          <div class="col-xs-12">
-            <img
+      <!-- Added some custom inline styles specific to this graphic -->
+      <div class="pet-following-yellow-dotted">
+        <div class="container">
+          <div class="row">
+            <div class="col-xs-12">
+              <img
                 class="img-responsive"
                 src="/images/pages/parents/graphic_04.svg"
                 alt="CodeCombat pet following yellow dotted path"
                 loading="lazy"
-            />
+              >
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="container-course-offering-heading" v-if="brightchampsExperiment != 'brightchamps'">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12 text-center">
-            <img
-              class="img-responsive money-back-guarantee"
-              src="/images/pages/parents/money_back_guarantee.png"
-              title="30-day money-back guarantee"
-              alt='"30 Day Money back Guarantee Transparent" by transparentpng.com is licensed under CC BY 4.0 - source: https://www.transparentpng.com/details/30-day-money-back-guarantee-transparent_15977.html'
-              loading="lazy"
-              v-if="showPricing"
-            />
-            <h1 class="pixelated">Course Offerings</h1>
-            <p style="margin: 0 auto;" v-if="trialClassExperiment == 'trial-class'">
-              With individual or small group class options and flexible scheduling available, this is the easiest way to get started in computer science.
-            </p>
-            <p style="margin: 0 auto;" v-else>
-              All classes feature private, individualized instruction. To enroll a group of students, contact <a href="mailto:classes@codecombat.com">classes@codecombat.com</a> for a custom plan.
-            </p>
+      <div
+        v-if="brightchampsExperiment != 'brightchamps'"
+        class="container-course-offering-heading"
+      >
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12 text-center">
+              <img
+                v-if="showPricing"
+                class="img-responsive money-back-guarantee"
+                src="/images/pages/parents/money_back_guarantee.png"
+                title="30-day money-back guarantee"
+                alt="&quot;30 Day Money back Guarantee Transparent&quot; by transparentpng.com is licensed under CC BY 4.0 - source: https://www.transparentpng.com/details/30-day-money-back-guarantee-transparent_15977.html"
+                loading="lazy"
+              >
+              <h1 class="pixelated">
+                {{ $t('parents_landing_1.course_offering') }}
+              </h1>
+              <p
+                style="margin: 0 auto;"
+              >
+                {{ $t('parents_landing_1.flexible_scheduling') }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="container-pricing-table" v-if="brightchampsExperiment != 'brightchamps'">
-      <div class="pricing-grid-container">
-        <div v-if="showPricing"></div>
-        <div v-if="showPricing"></div>
-        <div v-if="showPricing" class="value-topper">Most popular</div>
-        <div v-if="showPricing" class="value-topper">Best Value</div>
-        <!-- First Row -->
-        <div class="grid-item"></div>
-        <div class="grid-item">Self-Paced</div>
-        <div class="grid-item">Private</div>
-        <div class="grid-item">Private</div>
-        <!-- End First Row -->
-        <!-- Second Row -->
-        <!-- TODO: differentiate between annual and lifetime -->
-        <div class="grid-item" v-if="showPricing">Subscription plan</div>
-        <div class="grid-item" v-if="showPricing">${{ basicAnnualSubscriptionPrice }} per year</div>
-        <div class="grid-item" v-if="showPricing">$219 per month</div>
-        <div class="grid-item" v-if="showPricing">$399 per month</div>
-        <!-- End Second Row -->
-        <!-- Third Row -->
-        <div class="grid-item">60-minute sessions via Zoom</div>
-        <div class="grid-item">N/A</div>
-        <div class="grid-item">1 private session per week</div>
-        <div class="grid-item">2 private sessions per week</div>
-        <!-- End Third Row -->
-        <!-- Fourth Row -->
-        <div class="grid-item">Student to Instructor Ratio</div>
-        <div class="grid-item">N/A</div>
-        <div class="grid-item">1:1</div>
-        <div class="grid-item">1:1</div>
-        <!-- End Fourth Row -->
-        <!-- Fifth Row -->
-        <div class="grid-item">CodeCombat premium license included</div>
-        <div class="grid-item"><icon-gem /></div>
-        <div class="grid-item"><icon-gem /></div>
-        <div class="grid-item"><icon-gem /></div>
-        <!-- End Fifth Row -->
-        <!-- Sixth Row -->
-        <div class="grid-item">Immediate and personalized feedback</div>
-        <div class="grid-item"></div>
-        <div class="grid-item"><icon-gem /></div>
-        <div class="grid-item"><icon-gem /></div>
-        <!-- End Sixth Row -->
-        <!-- Seventh Row -->
-        <div class="grid-item">Bonus activities, rewards, and course completion certificates</div>
-        <div class="grid-item"></div>
-        <div class="grid-item"><icon-gem /></div>
-        <div class="grid-item"><icon-gem /></div>
-        <!-- End Eighth Row -->
-        <!-- Ninth Row -->
-        <div class="grid-item">End of course projects that demonstrate concepts learned</div>
-        <div class="grid-item"></div>
-        <div class="grid-item"><icon-gem /></div>
-        <div class="grid-item"><icon-gem /></div>
-        <!-- End Ninth Row -->
-        <!-- Ninth Row -->
-        <div class="grid-item">Monthly progress updates from instructor</div>
-        <div class="grid-item"></div>
-        <div class="grid-item"><icon-gem /></div>
-        <div class="grid-item"><icon-gem /></div>
-        <!-- End Ninth Row -->
-        <!-- Tenth Row -->
-        <div class="grid-item">Flexible schedule adapted to each student's learning needs</div>
-        <div class="grid-item"></div>
-        <div class="grid-item"><icon-gem /></div>
-        <div class="grid-item"><icon-gem /></div>
-        <!-- End Tenth Row -->
-        <!-- Eleventh Row -->
-        <div class="grid-item">1:1 support in tackling difficult coding concepts</div>
-        <div class="grid-item"></div>
-        <div class="grid-item"><icon-gem /></div>
-        <div class="grid-item"><icon-gem /></div>
-        <!-- End Eleventh Row -->
-        <!-- Twelth Row -->
-        <div class="grid-item">Automatic qualification into AI League coding tournaments</div>
-        <div class="grid-item"></div>
-        <div class="grid-item"></div>
-        <div class="grid-item"><icon-gem /></div>
+      <div
+        v-if="brightchampsExperiment != 'brightchamps'"
+        class="container-pricing-table"
+      >
+        <div class="pricing-grid-container">
+          <div v-if="showPricing" />
+          <div v-if="showPricing" />
+          <div
+            v-if="showPricing"
+            class="value-topper"
+          >
+            {{ $t('parents_landing_1.most_popular') }}
+          </div>
+          <div
+            v-if="showPricing"
+            class="value-topper"
+          >
+            {{ $t('parents_landing_1.best_value') }}
+          </div>
+          <!-- First Row -->
+          <div class="grid-item" />
+          <div class="grid-item">
+            <a
+              href="/premium"
+              target="_blank"
+            >{{ $t('parents_landing_1.self_paced') }}</a>
+          </div>
+          <div class="grid-item">
+            {{ $t('parents_landing_1.private') }}
+          </div>
+          <div class="grid-item">
+            {{ $t('parents_landing_1.private') }}
+          </div>
+          <!-- End First Row -->
+          <!-- Second Row -->
+          <!-- TODO: differentiate between annual and lifetime -->
+          <div
+            v-if="showPricing"
+            class="grid-item"
+          >
+            {{ $t('parents_landing_1.subscription_plan') }}
+          </div>
+          <div
+            v-if="showPricing"
+            class="grid-item"
+          >
+            ${{ basicAnnualSubscriptionPrice }} {{ $t('parents_landing_1.per_year') }}
+          </div>
+          <div
+            v-if="showPricing"
+            class="grid-item"
+          >
+            {{ $t('parents_landing_1.price_per_year_1') }}
+          </div>
+          <div
+            v-if="showPricing"
+            class="grid-item"
+          >
+            {{ $t('parents_landing_1.price_per_year_2') }}
+          </div>
+          <!-- End Second Row -->
+          <!-- Third Row -->
+          <div class="grid-item">
+            {{ $t('parents_landing_1.benefit_1') }}
+          </div>
+          <div class="grid-item">
+            {{ $t('parents_landing_1.not_available') }}
+          </div>
+          <div class="grid-item">
+            {{ $t('parents_landing_1.private_sessions_1') }}
+          </div>
+          <div class="grid-item">
+            {{ $t('parents_landing_1.private_sessions_2') }}
+          </div>
+          <!-- End Third Row -->
+          <!-- Fourth Row -->
+          <div class="grid-item">
+            {{ $t('parents_landing_1.benefit_2') }}
+          </div>
+          <div class="grid-item">
+            {{ $t('parents_landing_1.not_available') }}
+          </div>
+          <div class="grid-item">
+            {{ $t('parents_landing_1.one_to_one') }}
+          </div>
+          <div class="grid-item">
+            {{ $t('parents_landing_1.one_to_one') }}
+          </div>
+          <!-- End Fourth Row -->
+          <!-- Fifth Row -->
+          <div class="grid-item">
+            {{ $t('parents_landing_1.benefit_3') }}
+          </div>
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <!-- End Fifth Row -->
+          <!-- Sixth Row -->
+          <div class="grid-item">
+            {{ $t('parents_landing_1.benefit_4') }}
+          </div>
+          <div class="grid-item" />
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <!-- End Sixth Row -->
+          <!-- Seventh Row -->
+          <div class="grid-item">
+            {{ $t('parents_landing_1.benefit_5') }}
+          </div>
+          <div class="grid-item" />
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <!-- End Eighth Row -->
+          <!-- Ninth Row -->
+          <div class="grid-item">
+            {{ $t('parents_landing_1.benefit_6') }}
+          </div>
+          <div class="grid-item" />
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <!-- End Ninth Row -->
+          <!-- Ninth Row -->
+          <div class="grid-item">
+            {{ $t('parents_landing_1.benefit_7') }}
+          </div>
+          <div class="grid-item" />
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <!-- End Ninth Row -->
+          <!-- Tenth Row -->
+          <div class="grid-item">
+            {{ $t('parents_landing_1.benefit_8') }}
+          </div>
+          <div class="grid-item" />
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <!-- End Tenth Row -->
+          <!-- Eleventh Row -->
+          <div class="grid-item">
+            {{ $t('parents_landing_1.benefit_9') }}
+          </div>
+          <div class="grid-item" />
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <div class="grid-item">
+            <icon-gem />
+          </div>
+          <!-- End Eleventh Row -->
+          <!-- Twelth Row -->
+          <div class="grid-item">
+            {{ $t('parents_landing_1.benefit_10') }}
+          </div>
+          <div class="grid-item" />
+          <div class="grid-item" />
+          <div class="grid-item">
+            <icon-gem />
+          </div>
         <!-- End Twelth Row -->
+        </div>
+
+        <div
+          v-if="showPricing"
+          class="text-below-pricing-table"
+        >
+          <p v-html="$t('parents_landing_1.subscription_details')" />
+        </div>
       </div>
 
-      <div class="text-below-pricing-table" v-if="showPricing">
-        <p>All subscriptions are billed on a monthly basis and may be paused, cancelled, or resumed with no fees. Your subscription purchase is 100% risk-free within the first 30 days. If for any reason you decide not to continue, simply <a href="mailto:classes@codecombat.com">contact us</a> within 30 days of purchase and we will promptly refund 100% of your payment, no questions asked. All plans are automatically renewed at the same level and billing cycle unless otherwise changed or canceled.</p>
-      </div>
-    </div>
+      <button-main-cta
+        v-if="brightchampsExperiment != 'brightchamps'"
+        :button-text="mainCtaButtonText(2)"
+        :subtext="mainCtaSubtext(2)"
+        @click="onClickMainCta"
+      />
+      <page-parents-section-premium v-if="showPricing && brightchampsExperiment != 'brightchamps'" />
 
-    <button-main-cta :buttonText="mainCtaButtonText(2)" :subtext="mainCtaSubtext(2)" @click="onClickMainCta" v-if="brightchampsExperiment != 'brightchamps'" />
-    <page-parents-section-premium v-if="showPricing && brightchampsExperiment != 'brightchamps'" />
-
-
-    <div class="container-graphic-spacer" v-if="brightchampsExperiment != 'brightchamps'">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12">
-            <img class="img-responsive" src="/images/pages/parents/graphic_05.svg" style="margin: 0 auto;" loading="lazy"/>
+      <div
+        v-if="brightchampsExperiment != 'brightchamps'"
+        class="container-graphic-spacer"
+      >
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12">
+              <img
+                class="img-responsive"
+                src="/images/pages/parents/graphic_05.svg"
+                style="margin: 0 auto;"
+                loading="lazy"
+              >
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-
-    <div class="container-our-curriculum">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12 text-center">
-            <h1 class="pixelated">Our Curriculum</h1>
+      <div class="container-our-curriculum">
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12 text-center">
+              <h1 class="pixelated">
+                {{ $t('parents_landing_1.curriculum') }}
+              </h1>
+            </div>
           </div>
-        </div>
-        <div class="row">
-          <div class="col-lg-12 text-center">
-            <img
+          <div class="row">
+            <div class="col-lg-12 text-center">
+              <img
                 class="img-responsive"
                 src="/images/pages/parents/learning_cycle.png"
                 alt="Diagram showing the cycle of learning. Live instruction to engage, with live instruction to explore concepts. Then game time to extend and evaluate."
                 loading="lazy"
-            />
+              >
+            </div>
           </div>
-        </div>
-        <div class="row">
-          <div class="col-lg-12 text-center">
-            <p>
-              Trusted by over 140,000 educators worldwide, our scaffolded curriculum is critical to helping students persevere. Our students type real code from the start, become more confident with each class, and learn how Computer Science is relevant to their daily lives.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="hero-for-student-outcomes">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12">
-            <img class="img-responsive" src="/images/pages/parents/graphic_06.svg" loading="lazy"/>
+          <div class="row">
+            <div class="col-lg-12 text-center">
+              <p>
+                {{ $t('parents_landing_1.curriculum_description') }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-
-    <div class="container-student-outcomes">
-      <div class="container">
-        <div class="row carousel-row">
-          <div class="col-lg-12 text-center student-outcomes">
-            <h1 class="pixelated">Student Outcomes</h1>
+      <div class="hero-for-student-outcomes">
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12">
+              <img
+                class="img-responsive"
+                src="/images/pages/parents/graphic_06.svg"
+                loading="lazy"
+              >
+            </div>
           </div>
-          <div id="student-outcome-carousel" class="carousel slide" data-interval=8000>
-            <div class="carousel-inner">
-              <div class="item active">
-                <div class="row row-eq-height">
-                  <div class="col-sm-7">
-                    <img class="img-responsive" src="/images/pages/parents/grit_carousel.png" loading="lazy"/>
-                  </div>
-                  <div class="col-sm-5">
-                    <h3>Grit</h3>
-                    <p>CodeCombat challenges students to embrace and learn from their mistakes. Built-in hints help students identify and fix bugs, leading to greater coding confidence.</p>
+        </div>
+      </div>
+
+      <div class="container-student-outcomes">
+        <div class="container">
+          <div class="row carousel-row">
+            <div class="col-lg-12 text-center student-outcomes">
+              <h1 class="pixelated">
+                {{ $t('parents_landing_1.student_outcomes') }}
+              </h1>
+            </div>
+            <div
+              id="student-outcome-carousel"
+              class="carousel slide"
+              data-interval="8000"
+            >
+              <div class="carousel-inner">
+                <div class="item active">
+                  <div class="row row-eq-height">
+                    <div class="col-sm-7">
+                      <img
+                        class="img-responsive"
+                        src="/images/pages/parents/grit_carousel.png"
+                        loading="lazy"
+                      >
+                    </div>
+                    <div class="col-sm-5">
+                      <h3>{{ $t('parents_landing_1.grit_header') }}</h3>
+                      <p>{{ $t('parents_landing_1.grit_description') }}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="item">
-                <div class="row row-eq-height">
-                  <div class="col-sm-7">
-                    <img class="img-responsive" src="/images/pages/parents/problem_solving_carousel.png" loading="lazy"/>
-                  </div>
-                  <div class="col-sm-5">
-                    <h3>Problem Solving Skills</h3>
-                    <p>Through an iterative problem solving process, our students solve coding challenges and flex their creativity to build their own games, websites, and apps for end-of-course projects.</p>
+                <div class="item">
+                  <div class="row row-eq-height">
+                    <div class="col-sm-7">
+                      <img
+                        class="img-responsive"
+                        src="/images/pages/parents/problem_solving_carousel.png"
+                        loading="lazy"
+                      >
+                    </div>
+                    <div class="col-sm-5">
+                      <h3>{{ $t('parents_landing_1.problem_solving_header') }}</h3>
+                      <p>{{ $t('parents_landing_1.problem_solving_description') }}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="item">
-                <div class="row row-eq-height">
-                  <div class="col-sm-7">
-                    <img class="img-responsive" src="/images/pages/parents/tech_list_carousel1.png" loading="lazy"/>
-                  </div>
-                  <div class="col-sm-5">
-                    <h3>Technological Literacy</h3>
-                    <p>Students gain a deep understanding of Computer Science and technological literacy skills that will transfer to other disciplines as well as future careers.</p>
+                <div class="item">
+                  <div class="row row-eq-height">
+                    <div class="col-sm-7">
+                      <img
+                        class="img-responsive"
+                        src="/images/pages/parents/tech_list_carousel1.png"
+                        loading="lazy"
+                      >
+                    </div>
+                    <div class="col-sm-5">
+                      <h3>{{ $t('parents_landing_1.technological_literacy') }}</h3>
+                      <p>{{ $t('parents_landing_1.technological_literacy_description') }}</p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="col-lg-12 text-center">
-            <button-arrow
+            <div class="col-lg-12 text-center">
+              <button-arrow
                 :point-left="true"
                 @click="onCarouselLeft"
-            />
-            <!-- Reference https://getbootstrap.com/docs/3.4/javascript/ -->
-            <div class='carousel-dot' @click="() => onCarouselDirectMove(0)"></div>
-            <div class='carousel-dot' @click="() => onCarouselDirectMove(1)"></div>
-            <div class='carousel-dot' @click="() => onCarouselDirectMove(2)"></div>
-            <button-arrow
+              />
+              <!-- Reference https://getbootstrap.com/docs/3.4/javascript/ -->
+              <div
+                class="carousel-dot"
+                @click="() => onCarouselDirectMove(0)"
+              />
+              <div
+                class="carousel-dot"
+                @click="() => onCarouselDirectMove(1)"
+              />
+              <div
+                class="carousel-dot"
+                @click="() => onCarouselDirectMove(2)"
+              />
+              <button-arrow
                 @click="onCarouselRight"
-            />
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="container-graphic-spacer outcome-to-concepts">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12">
-            <img class="img-responsive" src="/images/pages/parents/graphic_07.svg" style="margin: 0 auto; transform: translate(-47%, 0);" loading="lazy"/>
+      <div class="container-graphic-spacer outcome-to-concepts">
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12">
+              <img
+                class="img-responsive"
+                src="/images/pages/parents/graphic_07.svg"
+                style="margin: 0 auto; transform: translate(-47%, 0);"
+                loading="lazy"
+              >
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="container-concepts-covered" v-if="brightchampsExperiment != 'brightchamps'">
+      <div
+        v-if="brightchampsExperiment != 'brightchamps'"
+        class="container-concepts-covered"
+      >
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12 text-center">
+              <h1 class="pixelated">
+                {{ $t('parents_landing_1.concepts_covered') }}
+              </h1>
+            </div>
+          </div>
+          <div class="row row-eq-height">
+            <div class="col-sm-4 col-xs-12 concept-covered-tab beginner xs-pb-50">
+              <img
+                src="/images/pages/parents/trophy_bronze.svg"
+                loading="lazy"
+              >
+              <h3>{{ $t('parents_landing_1.beginner') }}</h3>
+              <p><b>{{ $t('parents_landing_1.beginner_description') }}</b></p>
+              <div class="topics">
+                <ul>
+                  <li>{{ $t('parents_landing_1.beginner_concepts_1') }}</li>
+                  <li>{{ $t('parents_landing_1.beginner_concepts_2') }}</li>
+                  <li>{{ $t('parents_landing_1.beginner_concepts_3') }}</li>
+                  <li>{{ $t('parents_landing_1.beginner_concepts_4') }}</li>
+                  <li>{{ $t('parents_landing_1.beginner_concepts_5') }}</li>
+                  <li>{{ $t('parents_landing_1.beginner_concepts_6') }}</li>
+                  <li>{{ $t('parents_landing_1.beginner_concepts_7') }}</li>
+                  <li>{{ $t('parents_landing_1.beginner_concepts_8') }}</li>
+                </ul>
+              </div>
+            </div>
+            <div class="col-sm-4 col-xs-12 concept-covered-tab intermediate xs-pb-50">
+              <img
+                src="/images/pages/parents/trophy_silver.svg"
+                loading="lazy"
+              >
+              <h3>{{ $t('parents_landing_1.intermediate_header') }}</h3>
+              <p><b>{{ $t('parents_landing_1.itermediate_details') }}</b></p>
+              <div class="topics">
+                <ul>
+                  <li>{{ $t('parents_landing_1.intermediate_concepts_1') }}</li>
+                  <li>{{ $t('parents_landing_1.intermediate_concepts_2') }}</li>
+                  <li>{{ $t('parents_landing_1.intermediate_concepts_3') }}</li>
+                  <li>{{ $t('parents_landing_1.intermediate_concepts_4') }}</li>
+                  <li>{{ $t('parents_landing_1.intermediate_concepts_5') }}</li>
+                  <li>{{ $t('parents_landing_1.intermediate_concepts_6') }}</li>
+                  <li>{{ $t('parents_landing_1.intermediate_concepts_7') }}</li>
+                  <li>{{ $t('parents_landing_1.intermediate_concepts_8') }}</li>
+                </ul>
+              </div>
+            </div>
+            <div class="col-sm-4 col-xs-12 concept-covered-tab advanced xs-pb-50">
+              <img
+                src="/images/pages/parents/trophy_gold.svg"
+                loading="lazy"
+              >
+              <h3>{{ $t('parents_landing_1.advanced_header') }}</h3>
+              <p><b>{{ $t('parents_landing_1.advanced_details') }}</b></p>
+              <div class="topics">
+                <ul>
+                  <li>{{ $t('parents_landing_1.advanced_concepts_1') }}</li>
+                  <li>{{ $t('parents_landing_1.advanced_concepts_2') }}</li>
+                  <li>{{ $t('parents_landing_1.advanced_concepts_3') }}</li>
+                  <li>{{ $t('parents_landing_1.advanced_concepts_4') }}</li>
+                  <li>{{ $t('parents_landing_1.advanced_concepts_5') }}</li>
+                  <li>{{ $t('parents_landing_1.advanced_concepts_6') }}</li>
+                  <li>{{ $t('parents_landing_1.advanced_concepts_7') }}</li>
+                  <li>{{ $t('parents_landing_1.advanced_concepts_8') }}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button-main-cta
+        :button-text="mainCtaButtonText(3)"
+        :subtext="mainCtaSubtext(3)"
+        @click="onClickMainCta"
+      />
+
+      <div
+        class="container-graphic-spacer"
+        style="margin: 20px;"
+      >
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12">
+              <img
+                class="img-responsive"
+                src="/images/pages/parents/graphic_08.svg"
+                style="margin: 0 auto;"
+                loading="lazy"
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="container">
         <div class="row">
           <div class="col-lg-12 text-center">
-            <h1 class="pixelated">Concepts Covered</h1>
+            <h1 class="pixelated">
+              {{ $t('parents_landing_1.ai_hints') }}
+            </h1>
           </div>
         </div>
-        <div class="row row-eq-height">
-          <div class="col-sm-4 col-xs-12 concept-covered-tab beginner xs-pb-50">
-            <img src="/images/pages/parents/trophy_bronze.svg" loading="lazy"/>
-            <h3>Beginner</h3>
-            <p><b>For students with little to no text-based coding experience.</b></p>
-            <div class="topics">
-              <ul>
-                <li>Sequences</li>
-                <li>Algorithms</li>
-                <li>Syntax</li>
-                <li>Strings</li>
-                <li>Arguments</li>
-                <li>Loops</li>
-                <li>Variables</li>
-                <li>Cartesian coordinates</li>
-              </ul>
-            </div>
-          </div>
-          <div class="col-sm-4 col-xs-12 concept-covered-tab intermediate xs-pb-50">
-            <img src="/images/pages/parents/trophy_silver.svg" loading="lazy"/>
-            <h3>Intermediate</h3>
-            <p><b>For students with some text-based coding experience.</b></p>
-            <div class="topics">
-              <ul>
-                <li>Boolean logic</li>
-                <li>Properties</li>
-                <li>Advanced loops</li>
-                <li>Conditionals</li>
-                <li>Nested conditionals</li>
-                <li>Functions</li>
-                <li>Events</li>
-                <li>Basic game AI</li>
-              </ul>
-            </div>
-          </div>
-          <div class="col-sm-4 col-xs-12 concept-covered-tab advanced xs-pb-50">
-            <img src="/images/pages/parents/trophy_gold.svg" loading="lazy"/>
-            <h3>Advanced</h3>
-            <p><b>For students with substantial experience in text-based code and a good grasp of complex concepts.</b></p>
-            <div class="topics">
-              <ul>
-                <li>Advanced strings</li>
-                <li>Computer arithmetic</li>
-                <li>Functions with returns</li>
-                <li>Complex conditionals</li>
-                <li>Arrays</li>
-                <li>Break/continue statements</li>
-                <li>Recursion</li>
-                <li>Stacks and Queues</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <button-main-cta :buttonText="mainCtaButtonText(3)" :subtext="mainCtaSubtext(3)" @click="onClickMainCta" />
-
-    <div class="container-graphic-spacer" style="margin: 20px;">
-      <div class="container">
         <div class="row">
-          <div class="col-lg-12">
-            <img class="img-responsive" src="/images/pages/parents/graphic_08.svg" style="margin: 0 auto;" loading="lazy"/>
+          <div class="col-lg-12 text-center">
+            <p v-html="$t('parents_landing_1.ai_hints_details')" />
+            <p>
+              {{ $t('premium_features.ai_bot_notice') }}
+            </p>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="container-background-faq" v-if="brightchampsExperiment != 'brightchamps'">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-12 text-center container-background-header">
-            <h1 class="pixelated">FAQs</h1>
+      <div
+        class="container-graphic-spacer"
+        style="margin: 20px;"
+      >
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12">
+              <img
+                class="img-responsive"
+                src="/images/pages/parents/graphic_05.svg"
+                style="margin: 0 auto;"
+                loading="lazy"
+              >
+            </div>
           </div>
-        </div>
-        <div class="row row-eq-height">
-          <div class="col-md-4 col-sm-6 col-xs-12">
-            <h4>
-              How are instructors matched with my child?
-            </h4>
-            <p v-if="trialClassExperiment == 'trial-class'">
-              After the initial trial class, our team carefully matches our online instructors to each student based on their experience level, personality, interests, and schedule. Our team will work with you to improve your experience if you or your child doesn’t love learning with your instructor.
-            </p>
-            <p v-else>
-              Each of our instructors were hand-picked to represent CodeCombat and provide a fun and personalized learning experience tailored to each student. We believe that your child will enjoy learning with any of our instructors, but if for any reason you would like to change teachers, we are happy to accommodate.
-            </p>
-          </div>
-          <div class="col-md-4 col-sm-6 col-xs-12">
-            <h4>
-              Are there any student age limits?
-            </h4>
-            <p>
-              We recommend our online classes for students aged 7 through 16. However, if your child can type, use a mouse, and is comfortable using a computer, they are welcome to join our class.
-            </p>
-          </div>
-          <div class="col-md-4 col-sm-6 col-xs-12">
-            <h4>
-              What kind of technology do I need to join the class?
-            </h4>
-            <p>
-              Any internet-connected device with a full keyboard. Laptops, PCs, and Chromebooks are recommended, however iPads will work with an external keyboard.
-            </p>
-          </div>
-          <div class="col-md-4 col-sm-6 col-xs-12">
-            <h4>
-              What is the cancellation policy?
-            </h4>
-            <p>
-              Your subscription purchase is 100% risk-free within the first 30 days. If for any reason you decide not to continue, simply <a href="mailto:classes@codecombat.com">contact us</a> within 30 days of purchase and we will promptly refund 100% of your purchase, no questions asked. You can also freeze your subscription at any time and re-activate when it works for you.
-            </p>
-          </div>
-          <div class="col-md-4 col-sm-6 col-xs-12">
-            <h4>
-              What if I need to reschedule a class?
-            </h4>
-            <p>
-              Once you have booked a weekly class with us, we have reserved time in our schedule exclusively for you, so we require 48 hours' advance notice for rescheduling classes. You can reschedule your class by emailing <a href="mailto:classes@codecombat.com">classes@codecombat.com</a>. Classes missed or canceled with less than 48 hours' notice will not be rescheduled or refunded.
-            </p>
-          </div>
-          <div class="col-md-4 col-sm-6 col-xs-12">
-            <h4>
-              What should I expect in the trial class?
-            </h4>
-            <p>
-              Each trial class is a private 60 minute session with <strong>45 minutes of instruction</strong> for the student followed by <strong>15 minutes for discussion with a parent or guardian</strong>. These 15 minutes are important and are set aside to answer any questions, provide insight into how the ongoing curriculum progresses, and help you select the right skill level and coding language for your child. If available, one of our remote learning advisors may join for this part of the session.
-            </p>
-          </div>
-        </div>
-        <div class="text-center">
-          <p>
-            <span>{{ $t('new_home_faq.see_faq_prefix') }}</span>
-            <a href="https://codecombat.zendesk.com/hc/en-us/categories/360004855234-Live-Online-Classes" target="_blank">{{ $t('new_home_faq.see_faq_link') }}</a><span>{{ $t('new_home_faq.see_faq_suffix') }}</span>
-          </p>
-          <p>
-            If you have any other questions about our online classes, please <a href="mailto:classes@codecombat.com">contact us.</a>
-          </p>
         </div>
       </div>
-    </div>
 
-    <div class="container-footer-mountains">
-    </div>
+      <div
+        v-if="brightchampsExperiment != 'brightchamps'"
+        class="container-background-faq"
+      >
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-12 text-center container-background-header">
+              <h1 class="pixelated">
+                {{ $t('parents_landing_1.faq_header') }}
+              </h1>
+            </div>
+          </div>
+          <div class="row row-eq-height">
+            <div class="col-md-4 col-sm-6 col-xs-12">
+              <h4>
+                {{ $t('parents_landing_1.faq_q_1') }}
+              </h4>
+              <p v-if="trialClassExperiment == 'trial-class'">
+                {{ $t('parents_landing_1.faq_a_1_trial_class') }}
+              </p>
+              <p v-else>
+                {{ $t('parents_landing_1.faq_a_1') }}
+              </p>
+            </div>
+            <div class="col-md-4 col-sm-6 col-xs-12">
+              <h4>
+                {{ $t('parents_landing_1.faq_q_2') }}
+              </h4>
+              <p>
+                {{ $t('parents_landing_1.faq_a_2') }}
+              </p>
+            </div>
+            <div class="col-md-4 col-sm-6 col-xs-12">
+              <h4>
+                {{ $t('parents_landing_1.faq_q_3') }}
+              </h4>
+              <p>
+                {{ $t('parents_landing_1.faq_a_3') }}
+              </p>
+            </div>
+            <div class="col-md-4 col-sm-6 col-xs-12">
+              <h4>
+                {{ $t('parents_landing_1.faq_q_4') }}
+              </h4>
+              <p
+                v-html="$t('parents_landing_1.faq_a_4')"
+              />
+            </div>
+            <div class="col-md-4 col-sm-6 col-xs-12">
+              <h4>
+                {{ $t('parents_landing_1.faq_q_5') }}
+              </h4>
+              <p v-html="$t('parents_landing_1.faq_a_5')" />
+            </div>
+            <div class="col-md-4 col-sm-6 col-xs-12">
+              <h4>
+                {{ $t('parents_landing_1.faq_q_6') }}
+              </h4>
+              <p v-html="$t('parents_landing_1.faq_a_6')" />
+            </div>
+          </div>
+          <div class="text-center">
+            <p>
+              <span>{{ $t('new_home_faq.see_faq_prefix') }}</span>
+              <a
+                href="https://codecombat.zendesk.com/hc/en-us/categories/360004855234-Live-Online-Classes"
+                target="_blank"
+              >{{ $t('new_home_faq.see_faq_link') }}</a><span>{{ $t('new_home_faq.see_faq_suffix') }}</span>
+            </p>
+            <p v-html="$t('parents_landing_1.other_questions')" />
+          </div>
+        </div>
+      </div>
+    </slot>
   </div>
 </template>
 
-<script>
+<script> // eslint-disable-line vue/multi-word-component-names
 import PageParentsSectionPremium from './PageParentsSectionPremium'
 import PageParentsJumbotron from './PageParentsJumbotron'
 import ModalTimetapSchedule from './ModalTimetapSchedule'
@@ -601,14 +875,10 @@ import ButtonMainCta from './ButtonMainCta'
 import IconGem from './IconGem'
 import ButtonArrow from './ButtonArrow'
 import { mapGetters } from 'vuex'
-import ModalUserDetails from "./ModalUserDetails";
-
-const DRIFT_LIVE_CLASSES_DEFAULT_INTERACTION_ID = 214809
-const DRIFT_LIVE_CLASSES_DIRECT_CHAT_INTERACTION_ID = 222065
 
 export default {
+  name: 'PageParentsLanding',
   components: {
-    ModalUserDetails,
     ModalTimetapSchedule,
     PageParentsSectionPremium,
     PageParentsJumbotron,
@@ -627,14 +897,27 @@ export default {
     showPremium: {
       type: Boolean,
       default: true
-    }
+    },
+
+    customMetaInfo: {
+      type: Object,
+      default () {
+        return {
+          title: (this.type === 'parents') ? undefined : this.$t('parents_landing_2.live_classes_title'),
+          meta: [
+            { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+          ],
+        }
+      },
+    },
   },
 
   data: () => ({
     timetapModalClassType: undefined,
     showTimetapModal: false,
     showTimetapConfirmationModal: false,
-    modalClassType: undefined
+    modalClassType: undefined,
+    availabilityPDT: []
   }),
 
   metaInfo () {
@@ -643,19 +926,10 @@ export default {
     //        called once the page has been rendered once.
     //        Request-class-list icon gets rendered back if the user navigates away.
     $('.request-class-list').hide()
-    return {
-      title: (this.type === 'parents') ? undefined : this.$t('parents_landing_2.live_classes_title'),
-      meta: [
-        { name: 'viewport', content: 'width=device-width, initial-scale=1' }
-      ]
-    }
+    return this.customMetaInfo
   },
 
   mounted () {
-    if (window.drift) {
-      window.drift.on('scheduling:meetingBooked', this.onDriftMeetingBooked)
-    }
-
     if (this.type === 'thank-you') {
       this.onClassBooked()
     }
@@ -667,12 +941,6 @@ export default {
         window.me.trackActivity('viewed-parents-pricing')
       }
     })
-  },
-
-  beforeDestroy () {
-    if (window.drift) {
-      window.drift.off('scheduling:meetingBooked', this.onDriftMeetingBooked)
-    }
   },
 
   methods: {
@@ -688,19 +956,20 @@ export default {
       )
     },
     onCarouselLeft () {
-      $("#student-outcome-carousel").carousel('prev')
+      $('#student-outcome-carousel').carousel('prev')
     },
 
     onCarouselRight () {
-      $("#student-outcome-carousel").carousel('next')
+      $('#student-outcome-carousel').carousel('next')
     },
 
-    onCarouselDirectMove(frameNum) {
-      $("#student-outcome-carousel").carousel(frameNum)
+    onCarouselDirectMove (frameNum) {
+      $('#student-outcome-carousel').carousel(frameNum)
     },
 
-    onClickMainCta () {
+    async onClickMainCta () {
       this.trackCtaClicked()
+
       if (this.brightchampsExperiment === 'brightchamps') {
         const url = 'https://learn.brightchamps.com/book-trial-class/?utm_source=B2B&utm_medium=Codecombat#'
         window.open(url, '_blank')
@@ -726,7 +995,7 @@ export default {
     },
 
     onGenericCtaClicked (e) {
-      this.timetapModalClassType = undefined;
+      this.timetapModalClassType = undefined
       this.onCtaClicked(e)
     },
 
@@ -735,35 +1004,18 @@ export default {
         e.preventDefault()
       }
 
-      if (!window.drift && (this.type === 'parents' || this.type === 'sales' || this.type === 'chat')) {
-        console.log('No Drift, resetting to self-serve')
-        this.type = 'self-serve'
-      }
-
       this.trackCtaClicked()
 
-      if (this.type === 'parents' || this.type === 'sales') {
-        window.drift.api.startInteraction({ interactionId: DRIFT_LIVE_CLASSES_DEFAULT_INTERACTION_ID })
-      } else if (this.type === 'chat') {
-        const now = new Date()
-        // Monday to Friday 8am - 4pm EST
-        if (now.getUTCHours() - 5 >= 7 && now.getUTCHours() - 5 <= 15 && now.getDay() > 0 && now.getDay() < 6) {
-          window.drift.api.startInteraction({ interactionId: DRIFT_LIVE_CLASSES_DIRECT_CHAT_INTERACTION_ID })
-        } else {
-          window.drift.api.startInteraction({ interactionId: DRIFT_LIVE_CLASSES_DEFAULT_INTERACTION_ID })
-        }
-      } else if (this.type === 'self-serve' || this.type === 'thank-you') {
+      if (this.type === 'parents' || this.type === 'sales' || this.type === 'self-serve' || this.type === 'thank-you' || this.type === 'chat') {
         this.showTimetapModal = true
+        if (this.type === 'parents' || this.type === 'sales' || this.type === 'chat') {
+          // We used to have a chat type, with Drift, but got rid of it
+          this.type = 'self-serve'
+        }
       } else if (this.type === 'call') {
         window.location.href = 'tel:818-873-2633'
       } else {
         console.error('Unknown CTA type on parents page')
-      }
-    },
-
-    onDriftMeetingBooked (e) {
-      if (e.interactionId === DRIFT_LIVE_CLASSES_DEFAULT_INTERACTION_ID || e.interactionId === DRIFT_LIVE_CLASSES_DIRECT_CHAT_INTERACTION_ID) {
-        application.tracker.trackEvent('Live classes welcome call scheduled', { parentsPageType: this.type })
       }
     },
 
@@ -791,11 +1043,9 @@ export default {
     mainCtaSubtext (buttonNum) {
       if (this.brightchampsExperiment === 'brightchamps') {
         return ''
-      }
-      else if (this.trialClassExperiment === 'trial-class' && buttonNum === 0) {
+      } else if (this.trialClassExperiment === 'trial-class' && buttonNum === 0) {
         return 'Or, <a href="/payments/initial-online-classes-71#">enroll now</a>'
-      }
-      else if (this.trialClassExperiment === 'trial-class') {
+      } else if (this.trialClassExperiment === 'trial-class') {
         return ''
       } else if (!buttonNum) {
         return ''
@@ -806,6 +1056,10 @@ export default {
       } else if (buttonNum === 3) {
         return '30-day 100% money-back guarantee'
       }
+    },
+
+    updateData (key, newData) {
+      this[key] = newData
     }
   },
 
@@ -816,47 +1070,43 @@ export default {
     ]),
 
     showPricing: () => {
-      if (/^zh/.test(me.get('preferredLanguage')) && me.get('country') === 'australia')
-        return false  // Australia partner offering extended services for Chinese-language students
+      if (/^zh/.test(me.get('preferredLanguage')) && me.get('country') === 'australia') { return false } // Australia partner offering extended services for Chinese-language students
       return true
     },
 
     trialClassExperiment () {
-      let value = { 'true': 'trial-class', 'false': 'no-trial-class' }[this.$route.query['trial-class']]
+      return 'trial-class'
+    },
+
+    scheduleFreeClassExperiment () {
+      let value = {
+        true: 'schedule-free-class',
+        false: 'no-schedule-free-class'
+      }[this.$route.query['schedule-free-class']]
       if (!value) {
-        value = me.getExperimentValue('trial-class', null, 'no-trial-class')
-        if (value) value = 'trial-class'  // Switch to trial-class for members of previous no-trial-class group
+        value = me.getExperimentValue('schedule-free-class', null, 'no-schedule-free-class')
       }
-      if (!value && new Date(me.get('dateCreated')) < new Date('2021-09-22')) {
+      if (!value && new Date(me.get('dateCreated')) < new Date('2022-09-27')) {
         // Don't include users created before experiment start date
-        value = 'trial-class'
+        value = 'no-schedule-free-class'
       }
-      if (!value && this.type === 'live-classes') {
-        // Don't include users coming from kid-specific landing page
-        value = 'trial-class'
-      }
-      if (!value && !this.showPricing) {
-        // Don't include users where we aren't showing pricing
-        value = 'trial-class'
-      }
+
       if (!value) {
-        //value = ['trial-class', 'no-trial-class'][Math.floor(me.get('testGroupNumber') / 2) % 2]
-        //me.startExperiment('trial-class', value, 0.5)
-        value = 'trial-class'
-        me.startExperiment('trial-class', value, 1)  // End experiment in favor of trial-class group; keep measuring
+        value = ['schedule-free-class', 'no-schedule-free-class'][Math.floor(me.get('testGroupNumber') / 2) % 2]
+        me.startExperiment('schedule-free-class', value, 0.5)
       }
       return value
     },
 
     brightchampsExperiment () {
-      let value = { 'true': 'brightchamps', 'false': 'control' }[this.$route.query['brightchamps']]
+      let value = { true: 'brightchamps', false: 'control' }[this.$route.query.brightchamps]
       if (!value) {
         value = me.getExperimentValue('brightchamps', null, 'control')
       }
       if (!value) {
         let trialClassExperimentDate = null
-        for (let experiment of me.get('experiments') || []) {
-          if (experiment.name == 'trial-class') {
+        for (const experiment of me.get('experiments') || []) {
+          if (experiment.name === 'trial-class') {
             trialClassExperimentDate = experiment.startDate
           }
         }
@@ -885,13 +1135,9 @@ export default {
     },
 
     videoId () {
-      if (this.trialClassExperiment === 'trial-class') {
-        return 'bb2e8bf84df5c2cfa0fcdab9517f1d9e'
-      } else {
-        return '3cba970325cb3c6df117c018f7862317'
-      }
+      return 'bb2e8bf84df5c2cfa0fcdab9517f1d9e'
     },
-  }
+  },
 }
 </script>
 
@@ -1136,7 +1382,6 @@ export default {
   margin-bottom: 5px;
   margin-top: 20px;
 }
-
 
 .pricing-grid-container > .grid-item {
   display: flex;
@@ -1411,7 +1656,6 @@ export default {
   padding: 30px;
 }
 
-
 .container-background-faq > .container > div:last-of-type {
   margin: 32px 0 0;
 }
@@ -1447,16 +1691,6 @@ export default {
   top: 0;
   right: -4px;
   border-radius: 0px 40px 0 0;
-}
-
-.container-footer-mountains {
-  width: 100%;
-  background: url(/images/pages/parents/parents_footer_mountain.svg);
-  background-repeat: no-repeat;
-  background-position: top;
-  background-size: cover;
-  height: 170px;
-  margin-bottom: -50px;
 }
 
 .power-of-play-gif {

@@ -1,45 +1,45 @@
 <script>
-  export default {
-    props: {
-      text: {
-        type: String,
-        default: ''
-      },
-      iconUrl: {
-        type: String,
-        default: ''
-      },
-      link: {
-        type: String,
-        default: ''
-      },
-      inactive: {
-        type: Boolean,
-        default: false
-      }
+export default {
+  props: {
+    text: {
+      type: String,
+      default: ''
     },
-
-    computed: {
-      iconBackground () {
-        if (this.iconUrl) {
-          return { 'background-image': `url(${this.iconUrl})` }
-        } else {
-          return {}
-        }
-      }
+    iconUrl: {
+      type: String,
+      default: ''
     },
+    link: {
+      type: String,
+      default: ''
+    },
+    inactive: {
+      type: Boolean,
+      default: false
+    }
+  },
 
-    methods: {
-      clickButton () {
-        if (!this.inactive) {
-          this.$emit('click')
-          if (this.link) {
-            application.router.navigate(this.link, { trigger: true })
-          }
+  computed: {
+    iconBackground () {
+      if (this.iconUrl) {
+        return { 'background-image': `url(${this.iconUrl})` }
+      } else {
+        return {}
+      }
+    }
+  },
+
+  methods: {
+    clickButton () {
+      if (!this.inactive) {
+        this.$emit('click')
+        if (this.link) {
+          application.router.navigate(this.link, { trigger: true })
         }
       }
     }
   }
+}
 </script>
 
 <template>
@@ -71,20 +71,20 @@
 }
 
 button {
-  background-color: $twilight;
+  background-color: var(--color-primary);
   border-radius: 4px;
   border-width: 0;
   text-shadow: unset;
   font-weight: bold;
   @include font-p-3-small-button-text-black;
-  color: $moon;
+  color: $white;
   font-size: 14px;
   line-height: 16px;
   font-weight: 600;
   background-image: unset;
 
   &:hover {
-    background-color: #355ea0;
+    background-color: var(--color-primary-2);
     transition: background-color .35s;
   }
 

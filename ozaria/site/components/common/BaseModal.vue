@@ -1,15 +1,19 @@
 <script>
-  import BaseModalContainer from './BaseModalContainer'
+import BaseModalContainer from './BaseModalContainer'
 
-  export default {
-    components: {
-      BaseModalContainer
-    }
+export default {
+  components: {
+    BaseModalContainer
   }
+}
 </script>
 
 <template>
-  <base-modal-container class="ozaria-modal">
+  <base-modal-container
+    class="ozaria-modal"
+    role="dialog"
+    tabindex="0"
+  >
     <slot name="close-icon" />
     <div class="ozaria-modal-content">
       <div class="ozaria-modal-header">
@@ -68,7 +72,7 @@
       font-size: 20px
       font-family: $body-font-style
       flex: 1 1 auto
-      overflow-y: scroll
+      overflow-y: auto
       align-items: baseline
 
     .ozaria-modal-footer

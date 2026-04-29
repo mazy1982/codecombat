@@ -1,35 +1,48 @@
 <script>
-  export default {
-    props: {
-      courses: {
-        type: Array,
-        default: () => []
-      },
-      selectedCourseId: {
-        type: String,
-        default: ''
-      }
+import utils from 'core/utils'
+
+export default {
+  props: {
+    courses: {
+      type: Array,
+      default: () => []
+    },
+    selectedCourseId: {
+      type: String,
+      default: ''
+    }
+  },
+
+  computed: {
+    isCodeCombat () {
+      return utils.isCodeCombat
+    },
+  },
+
+  methods: {
+    i18n (body, key) {
+      return utils.i18n(body, key)
     },
 
-    methods: {
-      onChange (event) {
-        this.$emit('change-course', event.target.value)
-      }
+    onChange (event) {
+      this.$emit('change-course', event.target.value)
     }
   }
+}
 </script>
 
 <template>
   <div>
-    <label>{{ $t('teacher_dashboard.select_chapter') }}</label>
+    <label>{{ $t('teacher_dashboard.select_' + (isCodeCombat ? 'course' : 'chapter')) }}</label>
     <select @change="onChange($event)">
       <option
         v-for="course in courses"
         :key="course._id"
         :value="course._id"
         :selected="course._id == selectedCourseId"
+        :disabled="course.disabled"
       >
-        {{ course.name }}
+        {{ i18n(course, 'name') }}
       </option>
     </select>
   </div>
@@ -57,6 +70,14 @@ div {
 
     border: 1px solid #379B8D;
     padding: 4px 0;
+
+    option {
+      color: black;
+
+      &:disabled {
+        color: grey;
+      }
+    }
   }
 }
 </style>

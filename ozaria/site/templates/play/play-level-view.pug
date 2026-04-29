@@ -5,7 +5,12 @@ include game-dev-goals
 
   .level-content
 
-    #fullscreen-editor-background-screen(title="Click to minimize the code editor")
+    #solution-area
+      #solution-view
+        .ace-solution
+        span.code-background
+        .solution-label(data-i18n="common.solution")
+        .close-solution-btn ×
 
     #code-area
       #goals-view
@@ -19,12 +24,11 @@ include game-dev-goals
         canvas(width=924, height=589)#normal-surface
 
         #web-surface-view
-        //#ascii-surface.hide(aria-hidden=true)
-        table#ascii-surface-table.hide(aria-label="Level Map" role="grid")
+        #screen-reader-surface-view
         #canvas-left-gradient.gradient
         #canvas-top-gradient.gradient
 
-      #spell-palette-view
+      #spell-palette-view(translate="no")
 
       #level-flags-view
 
@@ -62,6 +66,7 @@ include game-dev-goals
       else
         .panel-body!= view.howToPlayText
 
+    #level-chat-view
   //- #level-footer-shadow
 
   #screen-reader-live-updates.sr-only(aria-live="polite")

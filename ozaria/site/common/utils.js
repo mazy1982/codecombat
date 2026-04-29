@@ -1,5 +1,5 @@
 import RandomSeed from 'random-seed'
-import storage from "../../../app/core/storage";
+import storage from '../../../app/core/storage'
 
 function getDateString () {
   const date = new Date()
@@ -18,7 +18,7 @@ export function deterministicShuffleForUserAndDay (user, originalArray) {
   if (originalArray.length < 2) return originalArray
   const rand = new RandomSeed(`${getDateString()}${user.id}`)
 
-  let shuffledArray, array;
+  let shuffledArray, array
   do {
     shuffledArray = []
     array = _.cloneDeep(originalArray)
@@ -45,10 +45,16 @@ function teacherModalSeenKey (teacherId) {
 }
 
 export function hasSeenTeacherDetailModalRecently (teacherId) {
-  return storage.load(teacherModalSeenKey(teacherId))
+  const weekAgo = new Date(new Date() - 7 * 24 * 60 * 60 * 1000)
+  const dateCreated = me.get('dateCreated')
+  const recentUser = new Date(dateCreated) > weekAgo
+  if (!recentUser) {
+    return storage.load(teacherModalSeenKey(teacherId))
+  }
+  return true // new users don't see the modal initially
 }
 
 export function markTeacherDetailsModalAsSeen (teacherId) {
-  const HRS_12 = 60 * 12;
+  const HRS_12 = 60 * 12
   storage.save(teacherModalSeenKey(teacherId), true, HRS_12)
 }

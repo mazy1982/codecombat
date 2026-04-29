@@ -1,9 +1,9 @@
-const store = require('core/store')
-const utils = require('core/utils')
 import { internationalizeLevelType } from 'ozaria/site/common/ozariaUtils'
 import RootComponent from 'views/core/RootComponent'
 import template from 'templates/base-flat'
 import TutorialPlayComponent from './TutorialPlayComponent'
+const store = require('core/store')
+const utils = require('core/utils')
 
 class TutorialPlayView extends RootComponent {
   constructor (props = {}) {
@@ -30,11 +30,13 @@ class TutorialPlayView extends RootComponent {
 
     store.dispatch('game/addTutorialStep', {
       message: narrativeText,
+      originalMessage: narrative?.body,
       intro: {
         levelType: internationalizeLevelType(level.get('ozariaType'), true),
         learningGoals: learningGoals ? utils.i18n(learningGoals, 'body') : 'Learning goals'
       },
-      voiceOver: narrative?.voiceOver
+      voiceOver: narrative?.voiceOver,
+      speakerThangType: level.get('characterPortrait') || 'vega'
     })
   }
 }

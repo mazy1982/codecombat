@@ -6,19 +6,23 @@ name: Node.js CI
 # Triggering workflow on all push
 on: [push]
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: Node.js CI
 
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        node-version: [14.18.3]
+        node-version: [22.22.1]
 
     steps:
       - uses: actions/checkout@v2
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -30,8 +34,8 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       # We can skip webpack since we will build it for testing-ubuntu
-      - run: npm ci
+      - run: CYPRESS_INSTALL_BINARY=0 npm ci
         env:
           SKIP_WEBPACK: true
-      - run: npm run build
+      - run: npm run pre-build
       - run: npm run test-ubuntu

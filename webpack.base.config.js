@@ -3,29 +3,59 @@
 const _ = require('lodash')
 const path = require('path')
 const webpack = require('webpack')
+const moment = require('moment')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 const MiniCssExtractPlugin = require('mini-css-extract-plugin')
+const MomentLocalesPlugin = require('moment-locales-webpack-plugin')
+require('moment/min/locales.min')
 const glob = require('glob')
 require('coffee-script')
 require('coffee-script/register')
 const product = process.env.COCO_PRODUCT || 'codecombat'
+const shaTag = process.env.GIT_SHA || 'dev'
 const productSuffix = { codecombat: 'coco', ozaria: 'ozar' }[product]
 require.extensions[`.${productSuffix}.coffee`] = require.extensions['.coffee']
 const CompileStaticTemplatesPlugin = require('./compile-static-templates')
-const VueLoaderPlugin = require('vue-loader/lib/plugin')
+const { VueLoaderPlugin } = require('vue-loader')
 const PWD = process.env.PWD || __dirname
 const fs = require('fs')
+const { publicFolderName } = require('./development/utils')
+const locale = require('./app/locale/locale')
+const localeKeys = Object.keys(locale)
+const possibleLocaleKeysFn = (keys) => {
+  const current = [...keys]
+  keys.forEach((key) => {
+    if (key.includes('-')) {
+      const langs = {
+        'zh-HANS': 'zh-cn',
+        'zh-HANT': 'zh-tw'
+      }
+      if (langs[key]) {
+        current.push(langs[key])
+      }
+      const possible = key.split('-')
+      const temp = []
+      for (let i = 0; i < possible.length - 1; i++) {
+        temp.push(possible[i])
+        current.push(temp.join('-'))
+      }
+    }
+  })
+  return current
+}
+const possibleLocaleKeys = possibleLocaleKeysFn(localeKeys)
+const momentCocoLocales = _.intersection(possibleLocaleKeys, moment.locales())
 
 console.log(`Starting Webpack for product ${product}`)
 
 class ProductResolverPlugin {
+  // Imports foo.coco.bar, foo.ozar.bar, or foo.bar as appropriate
   apply(resolver) {
     resolver.ensureHook(this.target)
 
     resolver
       .getHook("undescribed-raw-file")
       .tapAsync('ProductResolver', (request, ctx, cb) => {
-        //console.log(request)
 	cb()
       })
 
@@ -41,16 +71,10 @@ class ProductResolverPlugin {
           return
         }
 
-        // TODO: test this regex
         let match = request.path.match(new RegExp(`([a-z]+)\\.${productSuffix}\\.\\1$`))
         if (!match) return
         let fixed = request.path.substr(0, match.index) + productSuffix + '.' + match[1]
-        //console.log("YYY", match[0], request.path, fixed)
         request.path = fixed
-
-        //if (fs.existsSync(fixed)) {
-        //  console.log("X", request.path, request.relativePath)
-        //}
       })
   }
 }
@@ -58,6 +82,24 @@ class ProductResolverPlugin {
 // Main webpack config
 module.exports = (env) => {
   if (!env) env = {}
+
+  // Configure optional node_modules/ai/dist requires
+  const aiDistPath = path.resolve(PWD, 'node_modules/ai/dist')
+  const extraCopyWebpackPluginPatterns = []
+  const extraIgnorePluginEntries = []
+  if (fs.existsSync(aiDistPath)) {
+    extraCopyWebpackPluginPatterns.push({
+      // Standalone ai project expects images and other assets to be in its public folder, so copy them to AI's new root `/ai`
+      context: aiDistPath,
+      from: '**/*',
+      to: 'ai'
+    })
+  } else {
+    extraIgnorePluginEntries.push(new webpack.IgnorePlugin({
+      resourceRegExp: /node_modules\/ai\/dist\/(ai|style)/
+    }))
+  }
+
   return {
     context: path.resolve(PWD),
     entry: {
@@ -72,22 +114,22 @@ module.exports = (env) => {
         './vendor/scripts/coffeescript.js'
       ]),
       lodash: 'lodash', // For worker_world
-      aether: './app/lib/aether/aether.coffee' // For worker_world
+      aether: './app/lib/aether/aether' // For worker_world
       // esper: './bower_components/esper.js/esper.js',
       // vendor: './app/vendor.js'
     },
     output: {
       filename: 'javascripts/[name].js', // TODO: Use chunkhash in layout.static.pug's script tags instead of GIT_SHA
       // chunkFilename is determined by build type
-      path: path.resolve(PWD, 'public'),
+      path: path.resolve(PWD, publicFolderName),
       publicPath: '/' // Base URL path webpack tries to load other bundles from
     },
+    devtool: 'eval-cheap-source-map',
     module: {
       noParse: function (name) { // These are already built into commonjs bundles
         return _.any([
           /vendor.*coffeescript/,
           /bower_components.*aether/,
-          /bower_components.*jsondiffpatch.*\.js$/,
           /fuzzaldrin/
         ], (regex) => { return regex.test(name) })
       },
@@ -105,7 +147,10 @@ module.exports = (env) => {
         { test: /\.js$/,
           exclude: /(node_modules|bower_components|vendor)/,
           use: [{
-            loader: 'babel-loader'
+            loader: 'babel-loader',
+            options: {
+              cacheDirectory: true
+            }
           }]
         },
         { test: /\.coffee$/,
@@ -177,8 +222,9 @@ module.exports = (env) => {
               options: {
                 implementation: require("sass"),
                 sassOptions: {
-                  indentedSyntax: true
-                }
+                  indentedSyntax: true,
+                },
+                additionalData: `$is-codecombat: ${product == 'codecombat'}`,
               }
             },
             { loader: 'import-glob-loader' }
@@ -202,6 +248,7 @@ module.exports = (env) => {
               loader: 'sass-loader',
               options: {
                 implementation: require("sass"),
+                additionalData: `$is-codecombat: ${product == 'codecombat'};`,
               }
             }
           ]
@@ -221,16 +268,18 @@ module.exports = (env) => {
         'node_modules' // Or maybe require('foo') for the Node module "foo".
       ],
       extensions: [
-        '.web.coffee', '.web.js', '.coffee', '.js', '.pug', '.sass', '.vue', 
+        '.web.coffee', '.web.js', '.coffee', '.js', '.pug', '.sass', '.vue',
         `.${productSuffix}.coffee`, `.${productSuffix}.js`, `.${productSuffix}.pug`, `.${productSuffix}.sass`, `.${productSuffix}.vue`,  //, `.${productSuffix}.scss` ?
       ],
       alias: { // Replace Backbone's underscore with lodash
-        'underscore': 'lodash'
+        'underscore': 'lodash',
+        'ace-builds': path.resolve(__dirname, 'bower_components/ace-builds') //y-ace requires
       },
       // https://github.com/facebook/create-react-app/issues/11756#issuecomment-1047253186
       fallback: {
         util: require.resolve('util/'), // because of 'console-browserify' package used by jshint, details: https://github.com/facebook/create-react-app/issues/11756
         assert: require.resolve('assert/'), // because of 'console-browserify'
+        'process/browser': require.resolve('process/browser') // because of Yjs
       },
       plugins: [new ProductResolverPlugin()]
     },
@@ -238,6 +287,10 @@ module.exports = (env) => {
       'esper.js': 'esper'
     },
     plugins: [
+      new webpack.DefinePlugin({
+        "COCO_PRODUCT": JSON.stringify(product), // Has to stringify
+        "SHA_TAG": JSON.stringify(shaTag)
+      }),
       new webpack.ProgressPlugin({ profile: false }), // Always show build progress
       new MiniCssExtractPlugin({ // Move CSS into external file
         filename: 'stylesheets/[name].css',
@@ -252,18 +305,7 @@ module.exports = (env) => {
       new webpack.IgnorePlugin({ resourceRegExp: /\/fonts\/bootstrap\/.*$/ }), // Ignore Bootstrap's fonts
       new webpack.IgnorePlugin({ resourceRegExp: /^memwatch$/ }), // Just used by the headless client on the server side
       new webpack.IgnorePlugin({ resourceRegExp: /.DS_Store$/ }),
-
-      // Enable IgnorePlugins for development to speed webpack
-      // new webpack.IgnorePlugin(/\!locale/),
-      // new webpack.IgnorePlugin(/\/admin\//),
-      // new webpack.IgnorePlugin(/\/artisan\//),
-      // new webpack.IgnorePlugin(/\/clans\//),
-      // new webpack.IgnorePlugin(/\/contribute\//),
-      // new webpack.IgnorePlugin(/\/courses\//),
-      // new webpack.IgnorePlugin(/\/editor\//),
-      // new webpack.IgnorePlugin(/\/ladder\//),
-      // new webpack.IgnorePlugin(/\/teachers\//),
-      // new webpack.IgnorePlugin(/\/play\//),
+      new webpack.IgnorePlugin({ contextRegExp: /blockly\/msg/, resourceRegExp: /.d\.ts$/ }),
 
       new CopyWebpackPlugin({
         patterns: [
@@ -289,7 +331,7 @@ module.exports = (env) => {
             from: 'vendor/esper-plugin-lang-cpp-modern.js',
             to: 'javascripts/app/vendor/aether-cpp.modern.js'
           }
-        ]
+        ].concat(extraCopyWebpackPluginPatterns)
       }),
       new CompileStaticTemplatesPlugin({
         locals: { shaTag: process.env.GIT_SHA || 'dev', chinaInfra: process.env.COCO_CHINA_INFRASTRUCTURE || false }
@@ -298,9 +340,12 @@ module.exports = (env) => {
       new webpack.ProvidePlugin({
         process: 'process/browser', // because of algoliasearch which needs access to process: https://github.com/algolia/docsearch/issues/980
         Buffer: ['buffer', 'Buffer']
+      }),
+      new MomentLocalesPlugin({
+        localesToKeep: momentCocoLocales
       })
-    ],
+    ].concat(extraIgnorePluginEntries),
     optimization: {},
-    stats: 'minimal'
+    stats: 'minimal',
   }
 }

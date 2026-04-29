@@ -1,18 +1,25 @@
 include game-dev-goals
 
 .game-container
+  #floating-nav
   #level-loading-view
 
   .level-content
     #control-bar-view
 
-    #fullscreen-editor-background-screen(title="Click to minimize the code editor")
+    #solution-area
+      #solution-view
+        .ace-solution
+        span.code-background
+        .solution-label(data-i18n="common.solution")
+        button.apply-solution-btn.btn.btn-small.btn-illustrated.btn-primary(data-i18n="play_level.apply_code")
+        .close-solution-btn ×
 
     #code-area
       #code-area-gradient.gradient
       #tome-view
 
-    #spell-palette-view
+    #spell-palette-view-mid.hide
 
     #problem-alert-view
     #game-area
@@ -22,7 +29,6 @@ include game-dev-goals
         canvas(width=924, height=589)#normal-surface
 
         #web-surface-view
-        #ascii-surface
         #canvas-left-gradient.gradient
         #canvas-top-gradient.gradient
         #goals-view
@@ -33,8 +39,6 @@ include game-dev-goals
 
       #game-dev-track-view
 
-      #level-chat-view
-
       #multiplayer-status-view
 
       #duel-stats-view
@@ -44,8 +48,6 @@ include game-dev-goals
       #thang-hud
 
       #level-dialogue-view
-
-      button.btn.btn-lg.btn-primary.banner.header-font#stop-cinematic-playback-button(data-i18n="[title]common.continue;common.continue")
 
     #surface-context-menu-view
 
@@ -75,10 +77,7 @@ include game-dev-goals
 
     .hints-view.hide
 
+    #level-chat-view
+
   #level-footer-shadow
   #level-footer-background
-
-  //- if !me.get('anonymous') && !me.isStudent()
-  //-   #play-footer(class=me.isPremium() ? "premium" : "")
-  //-     p(class='footer-link-text').picoctf-hide
-  //-       a.contact-link(title='Send CodeCombat a message', tabindex=-1, data-i18n="nav.contact")

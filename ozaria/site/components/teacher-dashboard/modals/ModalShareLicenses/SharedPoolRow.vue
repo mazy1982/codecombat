@@ -1,66 +1,153 @@
-
 <script>
-  import { mapActions } from "vuex";
+import { mapActions } from 'vuex'
 
-  export default {
-    props: {
-      name: {
-        type: String,
-        required: true,
-        default: ''
-      },
-      email: {
-        type: String,
-        required: true,
-        default: ''
-      },
-      licensesUsed: {
-        type: Number,
-        required: true,
-        default: 0
-      },
-      prepaid: {
-        type: Object,
-        default: () => {},
-        required: true
-      }
+export default {
+  props: {
+    name: {
+      type: String,
+      required: true,
+      default: '',
     },
+    email: {
+      type: String,
+      required: true,
+      default: '',
+    },
+    licensesUsed: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    teacherId: {
+      type: String,
+      required: true,
+      default: '',
+    },
+    propedMaxRedeemers: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    prepaid: {
+      type: Object,
+      default: () => {},
+      required: true,
+    },
+  },
 
-    data: () => ({
-      revoking: false
+  data: () => ({
+    revoking: false,
+    editing: false,
+    maxRedeemers: 0,
+  }),
+
+  computed: {
+    isOwner () {
+      return this.email === me.get('email')
+    },
+  },
+
+  mounted () {
+    this.maxRedeemers = this.propedMaxRedeemers
+  },
+
+  methods: {
+    ...mapActions({
+      revokeJoiner: 'prepaids/revokeJoiner',
     }),
-
-    computed: {
-      isOwner () {
-        return this.email === me.get('email');
+    saveJoiner () {
+      this.$emit('setJoinerMaxRedeemers', {
+        prepaid: this.prepaid,
+        userID: this.teacherId,
+        maxRedeemers: this.maxRedeemers,
+      })
+      this.editing = false
+    },
+    editJoiner () {
+      this.editing = true
+    },
+    async revokeTeacher () {
+      this.revoking = true
+      if (this.licensesUsed > 0) {
+        noty({
+          text: $.i18n.t('share_licenses.teacher_delete_warning'),
+          layout: 'center',
+          type: 'warning',
+          buttons: [
+            {
+              addClass: 'btn btn-primary',
+              text: 'Ok',
+              onClick: async ($noty) => {
+                await this.revokeJoiner({ prepaidId: this.prepaid._id, email: this.email })
+                this.revoking = false
+                $noty.close()
+              },
+            },
+            {
+              addClass: 'btn btn-danger',
+              text: 'Cancel',
+              onClick: ($noty) => {
+                this.revoking = false
+                $noty.close()
+              },
+            },
+          ],
+        })
+      } else {
+        await this.revokeJoiner({ prepaidId: this.prepaid._id, email: this.email })
+        this.revoking = false
       }
     },
-
-    methods: {
-      ...mapActions({
-        revokeJoiner: 'prepaids/revokeJoiner'
-      }),
-      async revokeTeacher() {
-        this.revoking = true;
-        await this.revokeJoiner({ prepaidId: this.prepaid._id, email: this.email });
-        this.revoking = false;
-      }
-    }
-  }
+  },
+}
 </script>
 
 <template>
   <div class="shared-pool-row">
     <div class="teacher-info">
-      <span class="name"> {{ name }} {{ isOwner ?  $t('share_licenses.you') : "" }} </span>
+      <span class="name"> {{ name }} {{ isOwner ? $t('share_licenses.you') : "" }} </span>
       <a
         class="email"
         :href="'mailto:'+email"
       > {{ email }} </a>
     </div>
-    <span class="licenses-used"> {{ $t("share_licenses.licenses_used_no_braces", { licensesUsed: licensesUsed }) }} </span>
-    <button :disabled="isOwner || revoking" class="btn btn-danger" type="button" @click.once="revokeTeacher"> {{$t("editor.delete")}} </button>
-
+    <span v-if="editing">
+      <span>{{ $t('share_licenses.licenses_limit') }}</span>
+      <input
+        v-model.number="maxRedeemers"
+        type="number"
+        min="0"
+        :max="prepaid.maxRedeemers"
+      >
+    </span>
+    <span
+      v-else
+      class="licenses-used"
+    > {{ $t("share_licenses.licenses_used_no_braces", { licensesUsed: licensesUsed, all: propedMaxRedeemers }) }} </span>
+    <button
+      v-if="!isOwner && editing"
+      class="btn btn-warning"
+      type="button"
+      @click.prevent="saveJoiner"
+    >
+      {{ $t('common.save') }}
+    </button>
+    <button
+      v-if="!isOwner && !editing"
+      class="btn btn-warning"
+      type="button"
+      @click.prevent="editJoiner"
+    >
+      {{ $t('teacher.edit_2') }}
+    </button>
+    <button
+      :disabled="isOwner || revoking"
+      class="btn btn-danger"
+      type="button"
+      @click="revokeTeacher"
+    >
+      {{ $t("editor.delete") }}
+    </button>
   </div>
 </template>
 
